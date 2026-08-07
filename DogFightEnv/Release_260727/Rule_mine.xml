@@ -1,0 +1,162 @@
+<?xml version="1.0"?>
+<!--
+  ============================================================================
+   Rule (my BT)  -  BEM 기반 1v1 Dogfight Behavior Tree
+   (논문2 Yang et al. 2024 Fig.3 흐름도 기반, WEZ/재추격 보강판)
+  ============================================================================
+
+  [흐름] 상태갱신(+WEZ) -> Superior 판정 -> 3국면 분기 -> 기동(VP) -> 지면충돌보정
+
+  [보강 포인트 - 논문 대비]
+   1) Superior 판정에 3-9 라인(AspectAngle) 반영 -> 적 후미 잡으면 OBFM(추격)
+   2) HABFM에서 거리 벌어지면(Room 큼) One/Two circle 대신 Pure로 '재추격(re-merge)'
+   3) WEZUpdate/DECO_WEZCheck 추가 -> OBFM에서 WEZ 진입 시 사격 위치 유지(Pure)
+
+  [주의] Sequence/Fallback 에 name= 금지(파서 버그). 거리 단위 m 가정.
+  ============================================================================
+-->
+<root main_tree_to_execute="MainTree">
+
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+
+      <!-- ===================== 상태 갱신 ===================== -->
+      <SelectTarget          BB="{BB}"/>
+      <DirectionVectorUpdate BB="{BB}"/>
+      <DistanceUpdate        BB="{BB}"/>
+      <CheckSight            BB="{BB}"/>
+      <AngleOffUpdate        BB="{BB}"/>
+      <AspectAngleUpdate     BB="{BB}"/>
+      <WEZUpdate             BB="{BB}" ConeDeg="1.0" MinM="152" MaxM="914"/>
+
+      <!-- ============ Superior? 판정 -> 국면 분류 ============ -->
+      <BFMDecision BB="{BB}" DetectRange="9260" Cone="30" BehindAA="90" EnergyMargin="1000"/>
+
+      <!-- ================== 3국면 분기 ==================== -->
+      <Fallback>
+
+        <!-- 08-04: 국면분류(BFMDecision)와 무관하게 항상 최우선 체크 — 상대가 조준을
+             못 잡고 있으면(상대LOS>45) 즉시 반격. 원래 DBFM/HABFM 안에 각각 넣었으나,
+             DBFM의 주분류경로(enemyPoint&&!iPoint)는 그 조건 자체가 "상대LOS<=30"을
+             전제해서 안에 있으면 논리적으로 거의 발동 못 함 — 국면 분류 이전(최상위)으로
+             옮겨서 매틱 항상 평가되게 함.
+             08-05: DECO_StuckCheck(3초 지속락 감지 + Lead 강제전환)를 시도했으나 버그
+             수정 후에도 v0/v5/v29에서 순손해로 확인돼(v22c만 개선, v0/v5/v29 전부 악화)
+             DECO_TargetLOSCheck 단독(순간 wobble 감지)으로 원복. DECO_StuckCheck 노드
+             자체는 등록만 남겨두고(MergeReversal과 동일하게 비활성 상태) XML에서 제거. -->
+        <!-- 08-05: Lag로 교체 실험 — 실패, 원복. v29/v32 모두 무승부가 급증(0→32/50,
+             0→21/30)하고 WEZ가 거의 사라짐(mean 1~2스텝) — Lag(LagDistance=0)가
+             "안전한 접근"이 아니라 "사실상 교전회피"로 작동함. Lead가 정답은 아니지만
+             Lag는 더 나쁨 — 원복. -->
+        <Sequence>
+          <DECO_TargetLOSCheck BB="{BB}" UpDown="Greater" InputLOS="45"/>
+          <Lead BB="{BB}" LeadGain="1.0"/>
+        </Sequence>
+
+        <!-- ───────────── DETECTING : 원거리 접근 -> 추격 ───────────── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="DETECTING"/>
+          <Pure BB="{BB}"/>
+        </Sequence>
+
+        <!-- ───────────── OBFM : 공격(우세) ───────────── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="OBFM"/>
+          <Fallback>
+            <!-- 적이 내 WEZ 안 -> 사격 위치 유지(Pure) -->
+            <Sequence>
+              <DECO_WEZCheck BB="{BB}" Side="Target"/>
+              <Pure BB="{BB}"/>
+            </Sequence>
+            <!-- 너무 근접 + 크게 횡단 -> Lag(오버슛 방지) -->
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less"    Distance="800"/>
+              <DECO_LOSCheck      BB="{BB}" UpDown="Greater" InputLOS="40"/>
+              <Lag BB="{BB}" LagDistance="0"/>
+            </Sequence>
+            <!-- WEZ 사거리(<914m) 진입 -> Pure 로 적 현재위치 정확 조준(득점) -->
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="914"/>
+              <Pure BB="{BB}"/>
+            </Sequence>
+            <!-- 접근 구간(사거리~3000m) + 각 우위 -> Lag 로 적 6시에 미끄러져 접근(오버슛 방지) -->
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="3000"/>
+              <DECO_LOSCheck      BB="{BB}" UpDown="Less" InputLOS="45"/>
+              <Lag BB="{BB}" LagDistance="0"/>
+            </Sequence>
+            <!-- 그 외 -> Pure 추격(적 6시/ WEZ 로 파고듦) -->
+            <Pure BB="{BB}"/>
+          </Fallback>
+        </Sequence>
+
+        <!-- ───────────── HABFM : 정면(대등) ───────────── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="HABFM"/>
+          <Fallback>
+            <!-- 중거리 선회전 -> 에너지로 rate/radius 선택 -->
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Greater" Distance="900"/>
+              <Fallback>
+                <Sequence>
+                  <DECO_EnergyCheck BB="{BB}" UpDown="Greater" Margin="0"/>
+                  <TwoCircle BB="{BB}"/>
+                </Sequence>
+                <OneCircle BB="{BB}"/>
+              </Fallback>
+            </Sequence>
+            <!-- 근접: 기수 정렬(승기) -> Lead, 아니면 Scissors -->
+            <Sequence>
+              <DECO_LOSCheck BB="{BB}" UpDown="Less" InputLOS="40"/>
+              <Lead BB="{BB}" LeadGain="1.0"/>
+            </Sequence>
+            <Scissors BB="{BB}" Freq="2.0"/>
+          </Fallback>
+        </Sequence>
+
+        <!-- ───────────── DBFM : 방어(열세) ───────────── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="DBFM"/>
+          <Fallback>
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="600"/>
+              <!-- 08-05 실험: BreakTurn과 같은 AimBlend를 Jinking(근접회피)에도 시도했으나
+                   실패 — v29(19/26/5→19/29/2, 무승부가 패배로), v32(12/13/5→11/15/4)
+                   둘 다 악화. 근접 저크(jink)는 예측불가성 자체가 방어력이라 조준방향
+                   섞기가 오히려 역효과로 추정. AimBlend=0(사실상 미사용)으로 원복,
+                   포트/코드는 남겨둠(추후 다른 값으로 재시도 가능). -->
+              <Jinking BB="{BB}" Freq="3.0"/>
+            </Sequence>
+            <!-- 08-05 실험: 순수회피(AimBlend=0)는 my_ata가 절대 안 줄어듦을 반복 확인(v29/v32
+                 트레이스) — 회피 방향에 목표방향을 20% 섞어 "회피하되 서서히 조준각도
+                 좁혀지도록" 시도. 자기추적 재발 방지를 위해 여전히 래치시점에만 계산. -->
+            <!-- 08-05/06 실험: RelatchSeconds=1.5(기본3.0) — v22c의 무손상패배 시드들
+                 개별로는 my_ata 수렴이 뚜렷이 개선됐음(seed16: 패배->승리, seed9/12:
+                 min_my_ata가 20~28도->0.02~0.36도로 코앞까지 감). 그런데 종합승률은
+                 v22c만 소폭개선(75/19/6->80/20/0, 무승부가 승리로)이고 정작 우리 최강
+                 상대인 v29(19/26/5->17/33/0)·v32(12/13/5->10/19/1) 둘 다 뚜렷이 악화 —
+                 StuckCheck 때와 같은 패턴(약한상대엔 도움, 강한상대엔 역효과). 재래치를
+                 빠르게 하면 각 하드턴의 지속시간이 짧아져 G하중/에너지관리 효과가
+                 옅어지고, 숙련된 상대(v29/v32)는 그 불안정함을 파고드는 것으로 추정.
+                 원복(기본값 3.0 사용, RelatchSeconds 속성 제거) — 포트/코드는 유지. -->
+            <!-- 08-06 실험: MINE_DBG_TRACE로 확인한 완전정체 케이스(134초 DBFM 내내
+                 Los_Degree 최소 71도)에 대한 대응 — 재래치마다 실제 개선여부(Los_Degree
+                 기준)를 보고, 계속 정체면 그 다음 래치부터 블렌드를 점점 올림(최대 0.5).
+                 StuckCheck/RelatchSeconds와 달리 "항상 더 공격적으로"가 아니라 "정체가
+                 확인된 경우에만" 강도를 올리는 컨텍스트 인지형 접근. -->
+            <BreakTurn BB="{BB}" AimBlend="0.2" EscalationStep="0.05" MaxAimBlend="0.5" StuckImproveDeg="5.0"/>
+          </Fallback>
+        </Sequence>
+
+        <!-- ───────────── 기본값(NONE) ───────────── -->
+        <Task_Empty BB="{BB}"/>
+
+      </Fallback>
+
+      <!-- ============ 지면충돌 방지 ============ -->
+      <PreventLandCrash BB="{BB}" FloorHard="1800" FloorSoft="3200"/>
+
+    </Sequence>
+  </BehaviorTree>
+
+</root>

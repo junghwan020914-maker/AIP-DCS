@@ -1,0 +1,41 @@
+# ── 빌드 산출물 / 캐시 ─────────────────────────────────────────
+Debug/
+Release/
+x64/
+bin/
+intermediate/
+.vs/
+*.ipch
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.idb
+*.tlog
+*.lastbuildstate
+*.recipe
+*.user
+__pycache__/
+*.pyc
+
+# ── 주최측 배포 뷰어 (100MB+ 바이너리, 재배포 대상 아님) ──────────
+# BattleViewer는 주최측에서 받는 것이라 저장소에 넣지 않는다.
+# 실행 방법은 README.md 참고.
+Windows/
+V1.1_*/
+BattleServer_*/
+
+# ── 진단 로그 / 재생성 가능한 산출물 ────────────────────────────
+# 세션 중 생성한 일회성 진단 출력(수십 MB). 스크립트(_*.py)는 추적한다.
+*.log
+DogFightEnv/Release_*/artifacts/
+DogFightEnv/Release_*/_*.zip
+
+# ── 기타 ───────────────────────────────────────────────────────
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Claude 런타임 파일
+.claude/

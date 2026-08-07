@@ -1,0 +1,13 @@
+#pragma once
+#include "Task_Empty.h"
+#include "Pure.h"
+#include "Lead.h"
+#include "Lag.h"
+#include "BreakTurn.h"
+#include "Jinking.h"
+#include "OneCircle.h"
+#include "TwoCircle.h"
+#include "Scissors.h"
+#include "PreventLandCrash.h"
+#include "Task_ClimbOut.h"
+#include "MergeReversal.h"

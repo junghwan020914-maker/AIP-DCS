@@ -1,0 +1,3 @@
+기본 Curriculum Stage 0 실행 시 radius=0.0 설정으로 발생하던 아래 오류를 수정했습니다.
+ValueError: high <= 0
+이제 랜덤화 범위가 0이면 위치 offset을 적용하지 않고, 자세 랜덤화는 정상적으로 유지됩니다. 기존 YAML, 모델, checkpoint와 호환되므로 최신 Release로 교체 후 다시 실행해 주세요.

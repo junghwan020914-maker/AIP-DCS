@@ -1,0 +1,53 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "1. Build BT DLL (x64 Debug)",
+      "type": "process",
+      "command": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
+      "args": [
+        "${workspaceFolder}\\AIP_DCS.vcxproj",
+        "-t:Build",
+        "-p:Configuration=Debug",
+        "-p:Platform=x64",
+        "-maxcpucount:1",
+        "-nologo"
+      ],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "2. Build + Run engagement (headless, CSV log)",
+      "type": "process",
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "C:\\Users\\yunsa\\SSU\\DOGFIG~1\\AIP_DCS\\DOGFIG~1\\Release\\aip_build_run.bat"
+      ],
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "3. Build + Run to DogFightViewer (live 3D)",
+      "type": "process",
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "C:\\Users\\yunsa\\SSU\\DOGFIG~1\\AIP_DCS\\DOGFIG~1\\Release\\aip_run_viewer.bat"
+      ],
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "4. Build + Run vs BASE AI (headless, CSV log)",
+      "type": "process",
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "C:\\Users\\yunsa\\SSU\\DOGFIG~1\\AIP_DCS\\DOGFIG~1\\Release\\aip_run_vs_base.bat"
+      ],
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    }
+  ]
+}

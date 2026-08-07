@@ -1,0 +1,122 @@
+<?xml version="1.0"?>
+<!--
+  ============================================================================
+   Rule (my BT)  -  BEM 기반 1v1 Dogfight Behavior Tree
+   (논문2 Yang et al. 2024 Fig.3 흐름도 기반, WEZ/재추격 보강판)
+  ============================================================================
+
+  [흐름] 상태갱신(+WEZ) -> Superior 판정 -> 3국면 분기 -> 기동(VP) -> 지면충돌보정
+
+  [보강 포인트 - 논문 대비]
+   1) Superior 판정에 3-9 라인(AspectAngle) 반영 -> 적 후미 잡으면 OBFM(추격)
+   2) HABFM에서 거리 벌어지면(Room 큼) One/Two circle 대신 Pure로 '재추격(re-merge)'
+   3) WEZUpdate/DECO_WEZCheck 추가 -> OBFM에서 WEZ 진입 시 사격 위치 유지(Pure)
+
+  [주의] Sequence/Fallback 에 name= 금지(파서 버그). 거리 단위 m 가정.
+  ============================================================================
+-->
+<root main_tree_to_execute="MainTree">
+
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+
+      <!-- ===================== 상태 갱신 ===================== -->
+      <SelectTarget          BB="{BB}"/>
+      <DirectionVectorUpdate BB="{BB}"/>
+      <DistanceUpdate        BB="{BB}"/>
+      <CheckSight            BB="{BB}"/>
+      <AngleOffUpdate        BB="{BB}"/>
+      <AspectAngleUpdate     BB="{BB}"/>
+      <WEZUpdate             BB="{BB}" ConeDeg="1.0" MinM="152" MaxM="914"/>
+
+      <!-- ============ Superior? 판정 -> 국면 분류 ============ -->
+      <BFMDecision BB="{BB}" DetectRange="9260" Cone="30" BehindAA="90" EnergyMargin="1000"/>
+
+      <!-- ================== 3국면 분기 ==================== -->
+      <Fallback>
+
+        <!-- ───────────── DETECTING : 원거리 접근 -> 추격 ───────────── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="DETECTING"/>
+          <Pure BB="{BB}"/>
+        </Sequence>
+
+        <!-- ───────────── OBFM : 공격(우세) ───────────── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="OBFM"/>
+          <Fallback>
+            <!-- 적이 내 WEZ 안 -> 사격 위치 유지(Pure) -->
+            <Sequence>
+              <DECO_WEZCheck BB="{BB}" Side="Target"/>
+              <Pure BB="{BB}"/>
+            </Sequence>
+            <!-- 너무 근접 + 크게 횡단 -> Lag(오버슛 방지) -->
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less"    Distance="800"/>
+              <DECO_LOSCheck      BB="{BB}" UpDown="Greater" InputLOS="40"/>
+              <Lag BB="{BB}" LagDistance="0"/>
+            </Sequence>
+            <!-- WEZ 사거리(<914m) 진입 -> Pure 로 적 현재위치 정확 조준(득점) -->
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="914"/>
+              <Pure BB="{BB}"/>
+            </Sequence>
+            <!-- 접근 구간(사거리~3000m) + 각 우위 -> Lag 로 적 6시에 미끄러져 접근(오버슛 방지) -->
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="3000"/>
+              <DECO_LOSCheck      BB="{BB}" UpDown="Less" InputLOS="45"/>
+              <Lag BB="{BB}" LagDistance="0"/>
+            </Sequence>
+            <!-- 그 외 -> Pure 추격(적 6시/ WEZ 로 파고듦) -->
+            <Pure BB="{BB}"/>
+          </Fallback>
+        </Sequence>
+
+        <!-- ───────────── HABFM : 정면(대등) ───────────── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="HABFM"/>
+          <Fallback>
+            <!-- 중거리 선회전 -> 에너지로 rate/radius 선택 -->
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Greater" Distance="900"/>
+              <Fallback>
+                <Sequence>
+                  <DECO_EnergyCheck BB="{BB}" UpDown="Greater" Margin="0"/>
+                  <TwoCircle BB="{BB}"/>
+                </Sequence>
+                <OneCircle BB="{BB}"/>
+              </Fallback>
+            </Sequence>
+            <!-- 근접: 기수 정렬(승기) -> Lead, 아니면 Scissors -->
+            <Sequence>
+              <DECO_LOSCheck BB="{BB}" UpDown="Less" InputLOS="40"/>
+              <Lead BB="{BB}" LeadGain="1.0"/>
+            </Sequence>
+            <Scissors BB="{BB}" Freq="2.0"/>
+          </Fallback>
+        </Sequence>
+
+        <!-- ───────────── DBFM : 방어(열세) ───────────── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="DBFM"/>
+          <Fallback>
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="600"/>
+              <Jinking BB="{BB}" Freq="3.0"/>
+            </Sequence>
+            <BreakTurn BB="{BB}"/>
+          </Fallback>
+        </Sequence>
+
+        <!-- ───────────── 기본값(NONE) ───────────── -->
+        <Task_Empty BB="{BB}"/>
+
+      </Fallback>
+
+      <!-- ============ 지면충돌 방지 ============ -->
+      <PreventLandCrash BB="{BB}" FloorHard="1800" FloorSoft="3200"/>
+
+    </Sequence>
+  </BehaviorTree>
+
+</root>

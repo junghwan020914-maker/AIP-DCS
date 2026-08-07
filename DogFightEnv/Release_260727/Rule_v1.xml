@@ -1,0 +1,75 @@
+<root main_tree_to_execute = "MainTree">
+
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+
+      <!-- 인지 단계: 타겟 선정 및 기하 정보 업데이트 -->
+      <Sequence>
+        <SelectTarget name="SelectTarget" BB="{BB}"/>
+        <DirectionVectorUpdate name="DirectionVectorUpdate" BB="{BB}"/>
+        <DistanceUpdate name="DistanceUpdateService" BB="{BB}"/>
+        <CheckSight name="CheckSight" BB="{BB}"/>
+        <AngleOffUpdate name="AngleOffUpdate" BB="{BB}"/>
+        <AspectAngleUpdate name="AspectAngleUpdate" BB="{BB}"/>
+
+        <ReactiveFallback>
+
+          <!-- 0. 최저 고도: 3000m 미만 즉시 상승 -->
+          <Sequence>
+            <DECO_AltitudeCheck name="AltCheck" MinAlt="3000" BB="{BB}"/>
+            <Task_ClimbOut name="ClimbOut" BB="{BB}"/>
+          </Sequence>
+
+          <!-- 1. 근접 후방 위협(ATA>140°, 900m 이내, 거의 완전히 물렸을 때만) → 브레이크 턴 후 역전 공격 -->
+          <Task_BreakAndReverse name="BreakAndReverse" BB="{BB}"/>
+
+          <!-- 2. 후방 위협(ATA > 150°, 3000m 이내) → 브레이크 턴 회피
+               (거리 제한 없던 버전은 머지 후 서로 멀어지기만 해도 "후방"으로 오인식되어
+               영원히 Evade에 갇혀 Lead로 복귀를 못 했음 -> 3000m 게이트 추가, 2026-07-03.
+               165°/1500m로 더 조여봤다가 오히려 대실패(무피해 교전으로 악화) -> 150/3000 원복.
+               Evade의 브레이크 턴이 단순 "방어로 시간낭비"가 아니라 이후 GetTail/Lead가
+               제대로 각도를 잡는 데 필요한 선행 기동이었던 것으로 보임, 2026-07-03) -->
+          <Sequence>
+            <DECO_DistanceCheck name="TailThreat_RangeGate" UpDown="Less" Distance="3000" BB="{BB}"/>
+            <DECO_TailThreatCheck name="TailThreat" ThreatAngle="150" BB="{BB}"/>
+            <Task_Evade name="Evade" BB="{BB}"/>
+          </Sequence>
+
+          <!-- 3. 루프 공격: 거리 800~1800m + 고도 3000m+ + 전방 70° 이내 -->
+          <Task_LoopAttack name="LoopAttack" BB="{BB}"/>
+
+          <!-- 4. 아직 상대 후방을 못 잡음(AA>60°): 정면 추적 대신 상대 6시 방향으로 파고들기
+               (60→100으로 풀었다가 오히려 대실패: 각도 안 잡고 바로 쫓아가기만 하니
+               조준 자체가 안 됨 -> 60으로 원복, 2026-07-03.
+               WEZ(<=914m)에서 GetTail을 못 쓰게 막아봤다가 이것도 대실패(완전 무교전) ->
+               원복. GetTail이 "낭비되는 시간"이 아니라 애초에 교전 자체를 성립시키는
+               필수 선행 기동이었던 것으로 보임 -> 이 우선순위 구조는 건드리지 않기로 함,
+               2026-07-03) -->
+          <Sequence>
+            <DECO_AspectAngleCheck name="AspectCheck_NotBehind" UpDown="Greater" InputAA="60" BB="{BB}"/>
+            <Task_GetTail name="GetTail" BB="{BB}"/>
+          </Sequence>
+
+          <!-- 5. 접근(>914m): 수평 Lead Pursuit -->
+          <Sequence>
+            <DECO_DistanceCheck name="DistanceCheck_Approach" UpDown="Greater" Distance="914" BB="{BB}"/>
+            <Task_Lead name="Task_Lead" BB="{BB}"/>
+          </Sequence>
+
+          <!-- 6. WEZ(≤914m) + 이미 상대 후방(AA≤60°): TrackHold (v1 신설, 2026-07-20)
+               Task_Pure를 대체. 조준은 동일(적 현재위치)하되 스로틀을 거리밴드+속도차
+               폐루프로 제어해 오버슈트를 막고 사거리 체류시간을 늘린다.
+               (v0 거울전 병목: GetTail 338 vs Pure 6 -> 사거리 안착 실패) -->
+          <Sequence>
+            <DECO_DistanceCheck name="DistanceCheck_WEZ" UpDown="Less" Distance="914" BB="{BB}"/>
+            <Task_TrackHold name="TrackHold" BB="{BB}"/>
+          </Sequence>
+
+        </ReactiveFallback>
+
+      </Sequence>
+
+    </Sequence>
+  </BehaviorTree>
+
+</root>

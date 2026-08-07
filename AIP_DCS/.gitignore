@@ -1,0 +1,33 @@
+# Visual Studio / MSVC build artifacts
+Debug/
+Release/
+x64/
+.vs/
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.dll
+*.idb
+*.tlog
+*.log
+*.lastbuildstate
+*.recipe
+*.user
+
+# build output (../bin is outside this folder, but ignore any local one too)
+bin/
+intermediate/
+
+# CMake (Geometry has generated CMake files)
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.o
+*.d
+
+# misc
+*.tmp
+_hidden_*.xml

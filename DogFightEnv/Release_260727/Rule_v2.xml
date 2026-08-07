@@ -1,0 +1,46 @@
+<root main_tree_to_execute = "MainTree">
+
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+
+      <!-- 인지 -->
+      <Sequence>
+        <SelectTarget name="SelectTarget" BB="{BB}"/>
+        <DirectionVectorUpdate name="DirectionVectorUpdate" BB="{BB}"/>
+        <DistanceUpdate name="DistanceUpdateService" BB="{BB}"/>
+        <AngleOffUpdate name="AngleOffUpdate" BB="{BB}"/>
+        <AspectAngleUpdate name="AspectAngleUpdate" BB="{BB}"/>
+
+        <ReactiveFallback>
+
+          <!-- 0. 추락 방지.
+               v18: MinAlt 3000 -> 1800.
+               [근거] VP Z하한이 3500이던 v17까지는 고도가 3358m 아래로 내려갈 일이
+               없어 이 분기가 200초간 0회 발동하는 죽은 코드였다. 하한을 1500m로
+               내리면서, 그보다 위인 1800m에서 발동하도록 옮겨 실제 안전망으로 살린다.
+               (실제 종료 하한은 min_altitude=300m이므로 1800m는 충분한 여유) -->
+          <Sequence>
+            <DECO_AltitudeCheck name="AltCheck" MinAlt="1800" BB="{BB}"/>
+            <Task_ClimbOut name="ClimbOut" BB="{BB}"/>
+          </Sequence>
+
+          <!-- 1. 생존(v15 신설): AA>120 = 내가 적 앞쪽 -> 적이 나를 겨눌 수 있는 상태.
+               사거리 근처(1500m)면 급선회 회피로 벗어난다.
+               (권정환에게 일방 격추당한 원인 = 방어 전무. 생존이 최우선) -->
+          <Sequence>
+            <DECO_DistanceCheck name="Threat_Range" UpDown="Less" Distance="1500" BB="{BB}"/>
+            <DECO_AspectAngleCheck name="Threat_Aspect" UpDown="Greater" InputAA="120" BB="{BB}"/>
+            <Task_Evade name="Evade" BB="{BB}"/>
+          </Sequence>
+
+          <!-- 2. 추격: v14 dV 속도매칭 + v17 궤도추종 + v18 고도제약 해제 -->
+          <Task_LeadPredict name="LeadPredict" BB="{BB}"/>
+
+        </ReactiveFallback>
+
+      </Sequence>
+
+    </Sequence>
+  </BehaviorTree>
+
+</root>

@@ -1,0 +1,28 @@
+<root main_tree_to_execute = "MainTree">
+
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+
+      <!-- 인지 -->
+      <Sequence>
+        <SelectTarget name="SelectTarget" BB="{BB}"/>
+        <DirectionVectorUpdate name="DirectionVectorUpdate" BB="{BB}"/>
+        <DistanceUpdate name="DistanceUpdateService" BB="{BB}"/>
+        <AngleOffUpdate name="AngleOffUpdate" BB="{BB}"/>
+        <AspectAngleUpdate name="AspectAngleUpdate" BB="{BB}"/>
+
+        <!-- 극단 단순: 고도 안전 / 추격 두 상태만 (노드 전환 최소화) -->
+        <ReactiveFallback>
+          <Sequence>
+            <DECO_AltitudeCheck name="AltCheck" MinAlt="3000" BB="{BB}"/>
+            <Task_ClimbOut name="ClimbOut" BB="{BB}"/>
+          </Sequence>
+          <Task_SmoothPursuit name="SmoothPursuit" BB="{BB}"/>
+        </ReactiveFallback>
+
+      </Sequence>
+
+    </Sequence>
+  </BehaviorTree>
+
+</root>

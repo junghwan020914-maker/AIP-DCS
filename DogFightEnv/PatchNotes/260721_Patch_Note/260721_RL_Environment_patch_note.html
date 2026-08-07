@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DogFightEnv Release 260721 Patch Notes</title>
+  <style>
+    :root {
+      --navy: #10243d;
+      --blue: #1769aa;
+      --sky: #eaf4fc;
+      --green: #1f7a5a;
+      --green-bg: #eaf7f1;
+      --amber: #a66300;
+      --amber-bg: #fff6e5;
+      --red: #b33a3a;
+      --red-bg: #fff0f0;
+      --ink: #1c2733;
+      --muted: #627080;
+      --line: #d8e0e8;
+      --paper: #ffffff;
+      --page: #f3f6f9;
+      --code: #152231;
+      --shadow: 0 12px 34px rgba(16, 36, 61, 0.09);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--page);
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", Arial, sans-serif;
+      line-height: 1.7;
+    }
+
+    a { color: var(--blue); }
+
+    .hero {
+      color: #fff;
+      background:
+        radial-gradient(circle at 92% 10%, rgba(69, 157, 220, 0.35), transparent 32%),
+        linear-gradient(135deg, #0d2037, #154d79);
+      padding: 56px 24px 48px;
+    }
+
+    .hero-inner,
+    .layout {
+      width: min(1160px, calc(100% - 36px));
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #a9d7f4;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(32px, 5vw, 54px);
+      line-height: 1.18;
+      letter-spacing: -0.035em;
+    }
+
+    .subtitle {
+      max-width: 850px;
+      margin: 18px 0 0;
+      color: #dbeaf5;
+      font-size: 18px;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 24px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 11px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 235px minmax(0, 1fr);
+      gap: 26px;
+      padding: 28px 0 70px;
+    }
+
+    nav {
+      position: sticky;
+      top: 18px;
+      align-self: start;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    nav strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--navy);
+      font-size: 14px;
+    }
+
+    nav a {
+      display: block;
+      padding: 7px 8px;
+      border-radius: 7px;
+      color: #435264;
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    nav a:hover { background: var(--sky); color: var(--blue); }
+
+    main { min-width: 0; }
+
+    section {
+      margin-bottom: 22px;
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      color: var(--navy);
+      font-size: 27px;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      margin: 24px 0 9px;
+      color: #214662;
+      font-size: 18px;
+    }
+
+    p { margin: 9px 0; }
+
+    ul, ol { margin: 9px 0; padding-left: 22px; }
+
+    li + li { margin-top: 5px; }
+
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #edf2f6;
+      color: #164f78;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92em;
+    }
+
+    .summary-grid,
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .summary-card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fafcfe;
+    }
+
+    .summary-card .label {
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .summary-card h3 { margin: 5px 0 7px; color: var(--navy); }
+
+    .callout {
+      margin: 16px 0;
+      padding: 15px 17px;
+      border-left: 5px solid var(--blue);
+      border-radius: 8px;
+      background: var(--sky);
+    }
+
+    .callout strong { color: var(--navy); }
+    .callout.good { border-color: var(--green); background: var(--green-bg); }
+    .callout.warn { border-color: var(--amber); background: var(--amber-bg); }
+    .callout.danger { border-color: var(--red); background: var(--red-bg); }
+
+    .code-block {
+      position: relative;
+      margin: 13px 0 18px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 20px;
+      overflow-x: auto;
+      border-radius: 10px;
+      color: #e8f1f7;
+      background: var(--code);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      tab-size: 4;
+    }
+
+    pre code { padding: 0; color: inherit; background: transparent; font-size: inherit; }
+
+    .copy {
+      position: absolute;
+      top: 9px;
+      right: 9px;
+      z-index: 1;
+      padding: 5px 9px;
+      border: 1px solid #63768a;
+      border-radius: 6px;
+      color: #e9f1f6;
+      background: #26384b;
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    table {
+      width: 100%;
+      margin: 13px 0 17px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { color: var(--navy); background: #eef4f8; }
+    tbody tr:hover { background: #f8fbfd; }
+
+    .status-ok { color: var(--green); font-weight: 800; }
+    .status-note { color: var(--amber); font-weight: 800; }
+
+    .steps {
+      counter-reset: patch-step;
+      list-style: none;
+      padding: 0;
+    }
+
+    .steps li {
+      position: relative;
+      min-height: 42px;
+      padding: 5px 0 13px 50px;
+    }
+
+    .steps li::before {
+      counter-increment: patch-step;
+      content: counter(patch-step);
+      position: absolute;
+      top: 2px;
+      left: 0;
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--blue);
+      font-weight: 800;
+    }
+
+    .path {
+      word-break: break-all;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+    }
+
+    footer {
+      padding: 28px 20px 36px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    @media (max-width: 860px) {
+      .layout { display: block; }
+      nav { position: static; margin-bottom: 22px; }
+      nav a { display: inline-block; }
+      .summary-grid, .two-col { grid-template-columns: 1fr; }
+      section { padding: 23px 19px; }
+    }
+
+    @media print {
+      body { background: #fff; font-size: 11pt; }
+      .hero { padding: 28px 0; background: #153a5a !important; print-color-adjust: exact; }
+      .hero-inner, .layout { width: 100%; }
+      .layout { display: block; padding: 18px 0; }
+      nav, .copy { display: none; }
+      section { break-inside: avoid; box-shadow: none; }
+      pre { white-space: pre-wrap; word-break: break-word; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">DogFightEnv Student Distribution</p>
+      <h1>Release 260721 Patch Notes</h1>
+      <p class="subtitle">
+        Release tools의 Dashboard/Replay 사용성 및 독립 실행 개선과
+        <code>student/my_curriculum.py</code> 기반 아군기·적군기 초기 시나리오 설정 기능을 안내합니다.
+      </p>
+      <div class="badges">
+        <span class="badge">배포일 2026-07-21</span>
+        <span class="badge">Tools Update</span>
+        <span class="badge">Scenario Pool</span>
+        <span class="badge">기존 학습 산출물 호환</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav aria-label="목차">
+      <strong>목차</strong>
+      <a href="#overview">1. 한눈에 보기</a>
+      <a href="#update">2. 업데이트 방법</a>
+      <a href="#tools">3. Release tools</a>
+      <a href="#scenario">4. 초기 시나리오</a>
+      <a href="#merge">5. 학생 코드 병합</a>
+      <a href="#local">6. 로컬 검증</a>
+      <a href="#compatibility">7. 호환성·주의사항</a>
+      <a href="#references">8. 코드·매뉴얼 참고</a>
+      <a href="#verification">9. 검증 결과</a>
+    </nav>
+
+    <main>
+      <section id="overview">
+        <h2>1. 한눈에 보기</h2>
+        <div class="summary-grid">
+          <article class="summary-card">
+            <span class="label">Tools</span>
+            <h3>Training/Replay 경로를 화면에서 선택</h3>
+            <p>대시보드 상단에서 각 로그 디렉터리를 고르고 <b>Apply</b>하면 해당 데이터로 다시 열립니다.</p>
+          </article>
+          <article class="summary-card">
+            <span class="label">Distribution</span>
+            <h3>Release 폴더만으로 tools 실행</h3>
+            <p>Dashboard와 Replay가 Release 바깥의 MyTrainEnv 또는 공용 tools를 참조하지 않습니다.</p>
+          </article>
+          <article class="summary-card">
+            <span class="label">Curriculum</span>
+            <h3>양 기체 초기 상태 직접 설정</h3>
+            <p>위치·자세·속도를 가진 여러 scenario를 이름과 가중치로 정의할 수 있습니다.</p>
+          </article>
+          <article class="summary-card">
+            <span class="label">Reproducibility</span>
+            <h3>학습과 로컬 검증의 분포 재사용</h3>
+            <p>같은 curriculum stage 또는 YAML을 로컬 교전에 연결하고 scenario index를 기록합니다.</p>
+          </article>
+        </div>
+        <div class="callout good">
+          <strong>호환성:</strong> 기존 experiment YAML, 모델 bundle, native checkpoint,
+          replay CSV와 기존 curriculum은 계속 사용할 수 있습니다. 새 기능은 필요한 학생만 opt-in합니다.
+        </div>
+      </section>
+
+      <section id="update">
+        <h2>2. 업데이트 방법</h2>
+        <ol class="steps">
+          <li>기존 <code>student/</code>, 직접 만든 experiment YAML, 모델·checkpoint, 로그를 별도 보관합니다.</li>
+          <li>새 Release 압축본을 <b>새 폴더에 완전히 압축 해제</b>합니다. 구버전 폴더 위에 일부 파일만 덮어쓰지 않는 것을 권장합니다.</li>
+          <li><code>tools/dogfight_dashboard</code>와 <code>tools/web_log_viewer</code> 폴더가 모두 있는지 확인합니다.</li>
+          <li><code>my_reward.py</code>, <code>my_observation.py</code> 등 자신의 코드를 새 Release로 옮깁니다.</li>
+          <li>기존에 수정한 <code>my_curriculum.py</code>는 통째로 덮어쓰기보다 아래 <b>병합 방법</b>에 따라 scenario pool 부분을 추가합니다.</li>
+        </ol>
+        <div class="callout danger">
+          <strong>중요:</strong> 자신의 <code>student/my_curriculum.py</code>를 새 기본 파일로 덮어쓰면
+          기존 stage와 진급 조건을 잃을 수 있습니다. 먼저 백업하고 diff/병합하십시오.
+        </div>
+      </section>
+
+      <section id="tools">
+        <h2>3. Release tools 변경</h2>
+        <h3>3.1 Dashboard/Replay 경로 선택</h3>
+        <ul>
+          <li>화면 상단에 <code>Training logdir</code>, <code>Replay logdir</code>, <b>Apply</b>, <b>Reset</b>이 추가되었습니다.</li>
+          <li>Apply 전에 경로가 현재 Release 루트 내부의 실제 디렉터리인지 확인합니다.</li>
+          <li>선택 경로와 현재 tab이 URL query에 남아 같은 화면을 다시 열기 쉽습니다.</li>
+          <li><code>artifacts/dashboard</code>, <code>artifacts/logs</code>, <code>logs</code>, <code>engagement_replays</code> 후보가 표시됩니다.</li>
+        </ul>
+
+        <div class="code-block">
+          <button class="copy" type="button">Copy</button>
+          <pre><code>python tools\dashboard.py --port 7860</code></pre>
+        </div>
+        <p>브라우저에서 <code>http://127.0.0.1:7860</code>을 열고 상단 경로를 선택한 뒤 Apply를 누릅니다.</p>
+
+        <h3>3.2 특정 Replay 폴더를 CLI로 바로 열기</h3>
+        <div class="code-block">
+          <button class="copy" type="button">Copy</button>
+          <pre><code>python tools\dashboard.py ^
+  --default-tab replay ^
+  --logdir artifacts\logs\&lt;output-name&gt;\&lt;output-tag&gt;\engagement_replays ^
+  --port 7860</code></pre>
+        </div>
+
+        <h3>3.3 Release tools 독립 실행</h3>
+        <p>
+          launcher는 <code>Release/tools</code> 내부의 Dashboard와 Replay 패키지를 사용합니다.
+          필수 패키지가 누락되면 모호한 import 오류 대신 불완전한 배포본임을 설명하는 오류를 표시합니다.
+          기존 <code>tools/training_dashboard/server.py</code>와 <code>tools/web_log_viewer.py</code>도 호환용으로 유지됩니다.
+        </p>
+        <div class="callout warn">
+          화면에서 선택하는 경로는 현재 Release 환경 루트 내부만 허용됩니다.
+          다른 프로젝트나 상위 디렉터리를 지정하면 검증 단계에서 거부됩니다.
+        </div>
+      </section>
+
+      <section id="scenario">
+        <h2>4. <code>my_curriculum.py</code> 초기 시나리오</h2>
+        <p>
+          <code>student/my_curriculum.py</code>의 <code>MY_SCENARIO_POOL</code>에 아군기와 적군기의
+          초기 상태를 여러 개 정의할 수 있습니다. 각 episode reset에서 환경 seed를 이용해 가중 선택합니다.
+        </p>
+
+        <h3>4.1 상태 벡터 계약</h3>
+        <table>
+          <thead><tr><th>순서</th><th>값</th><th>단위·주의</th></tr></thead>
+          <tbody>
+            <tr><td>0–2</td><td><code>N, E, D</code></td><td>m. NED 좌표이므로 고도 7,000 m는 <code>D=-7000</code></td></tr>
+            <tr><td>3–5</td><td><code>roll, pitch, heading</code></td><td>degree</td></tr>
+            <tr><td>6</td><td><code>speed</code></td><td>m/s, 0 이상</td></tr>
+          </tbody>
+        </table>
+
+        <h3>4.2 실행 가능한 예제</h3>
+        <div class="code-block">
+          <button class="copy" type="button">Copy</button>
+          <pre><code>MY_SCENARIO_POOL = {
+    "mode": "scenario_pool",
+    "scenarios": [
+        {
+            "name": "head_on_bt",
+            "weight": 0.5,
+            "ownship": [1000.0, 0.0, -7000.0, 0.0, 0.0, 0.0, 300.0],
+            "target": [6000.0, 0.0, -7000.0, 0.0, 0.0, 180.0, 300.0],
+            "target_mode": "behavior_tree",
+        },
+        {
+            "name": "offset_loiter",
+            "weight": 0.5,
+            "ownship": [1000.0, -1000.0, -6800.0, 0.0, 0.0, 30.0, 280.0],
+            "target": [5000.0, 1000.0, -7200.0, 0.0, 0.0, 180.0, 270.0],
+            "target_mode": "loiter",
+            "target_loiter": {"enabled": True, "bank": 35.0, "pitch": 0.0},
+        },
+    ],
+    "ownship_randomization": {
+        "enabled": True,
+        "radius": 200.0,
+        "r_heading": 15.0,
+    },
+    "target_randomization": {
+        "enabled": True,
+        "radius": 200.0,
+        "r_heading": 15.0,
+    },
+    "shared_randomization": {
+        "enabled": True,
+        "n_m": 500.0,
+        "e_m": 500.0,
+        "d_m": 100.0,
+    },
+}</code></pre>
+        </div>
+
+        <h3>4.3 랜덤화 구분</h3>
+        <table>
+          <thead><tr><th>설정</th><th>의미</th><th>대표 키</th></tr></thead>
+          <tbody>
+            <tr><td><code>ownship_randomization</code></td><td>아군기만 독립 랜덤화</td><td><code>radius</code>, <code>r_heading</code>, <code>speed_mps</code></td></tr>
+            <tr><td><code>target_randomization</code></td><td>적군기만 독립 랜덤화</td><td><code>n_m</code>, <code>e_m</code>, <code>d_m</code>, 자세 범위</td></tr>
+            <tr><td><code>shared_randomization</code></td><td>같은 N/E/D·속도 offset을 양 기체에 적용하여 상대 기하 유지</td><td><code>n_m</code>, <code>e_m</code>, <code>d_m</code>, <code>speed_mps</code></td></tr>
+          </tbody>
+        </table>
+        <p>pool 공통값뿐 아니라 각 scenario 안에 같은 randomization dict를 넣어 해당 scenario만 override할 수 있습니다.</p>
+      </section>
+
+      <section id="merge">
+        <h2>5. 자신의 curriculum에 병합하기</h2>
+        <p><code>MY_SCENARIO_POOL</code>을 정의한 뒤 사용할 <code>CurriculumStage</code>의 <code>env_overrides</code>에 연결합니다.</p>
+        <div class="code-block">
+          <button class="copy" type="button">Copy</button>
+          <pre><code>CurriculumStage(
+    index=1,
+    name="student_bt_dogfight",
+    target_mode="behavior_tree",
+    episode_step_limit=18000,
+    max_iterations=20,
+    checkpoint_interval=5,
+    reward_overrides={},
+    randomization={"enabled": False},
+    env_overrides={"initial_scenario": MY_SCENARIO_POOL},
+    advance_conditions={},
+    advance_window=5,
+)</code></pre>
+        </div>
+        <div class="two-col">
+          <div class="callout warn">
+            <strong>중복 랜덤화 방지</strong><br>
+            scenario pool이 랜덤화를 담당하므로 해당 stage의 기존 <code>randomization</code>은
+            <code>{"enabled": False}</code>로 두는 것을 권장합니다.
+          </div>
+          <div class="callout warn">
+            <strong>BT provider 준비</strong><br>
+            pool에 <code>behavior_tree</code> 항목이 있으면 환경 생성 시 BT가 준비되도록 stage의
+            기본 <code>target_mode</code>도 <code>behavior_tree</code>로 둡니다.
+          </div>
+        </div>
+      </section>
+
+      <section id="local">
+        <h2>6. 학습과 같은 stage로 로컬 검증</h2>
+        <p>선택한 curriculum stage의 <code>env_overrides</code>를 로컬 교전에서도 재사용할 수 있습니다.</p>
+        <div class="code-block">
+          <button class="copy" type="button">Copy</button>
+          <pre><code>python run_local_dogfight.py ^
+  --stages-module student.my_curriculum ^
+  --stage-index 1 ^
+  --ownship-backend rl ^
+  --ownship-bundle-dir artifacts\models\team01\curriculum_v1 ^
+  --target-backend bt ^
+  --save-log</code></pre>
+        </div>
+        <ul>
+          <li>YAML의 초기 분포를 확인할 때는 <code>--experiment-yaml experiments\&lt;file&gt;.yaml</code>을 사용합니다.</li>
+          <li>로컬 실행의 실제 적기 provider는 <code>--target-backend</code>가 결정합니다.</li>
+          <li>episode 지표에는 <code>initial_scenario_index</code>가 기록됩니다.</li>
+          <li>저장 bundle metadata에는 scenario 이름·가중치와 설정 SHA-256 요약이 기록됩니다.</li>
+        </ul>
+      </section>
+
+      <section id="compatibility">
+        <h2>7. 호환성 및 주의사항</h2>
+        <table>
+          <thead><tr><th>항목</th><th>상태</th><th>설명</th></tr></thead>
+          <tbody>
+            <tr><td>기존 experiment YAML</td><td class="status-ok">호환</td><td><code>scenario_pool</code>을 쓰지 않으면 기존 초기화 모드 유지</td></tr>
+            <tr><td>기존 curriculum</td><td class="status-ok">호환</td><td>기존 stage 정의를 그대로 사용할 수 있음</td></tr>
+            <tr><td>bundle / checkpoint</td><td class="status-ok">호환</td><td>관측·행동 계약을 변경하지 않음</td></tr>
+            <tr><td>Replay CSV</td><td class="status-ok">호환</td><td>기존 CSV pair를 새 tools에서 계속 재생 가능</td></tr>
+            <tr><td>기존 Dashboard CLI</td><td class="status-ok">호환</td><td><code>python tools/dashboard.py</code> 및 <code>--logdir</code> 유지</td></tr>
+            <tr><td>Unreal 초기 spawn</td><td class="status-note">별도</td><td>Unreal 서버가 spawn을 결정하므로 curriculum의 로컬 상태가 직접 적용되지 않음</td></tr>
+          </tbody>
+        </table>
+        <div class="callout">
+          <strong>재현성 확인:</strong> seed만 기록하지 말고 사용한 curriculum/YAML,
+          bundle metadata의 initial scenario summary, episode의 scenario index를 함께 보관하십시오.
+        </div>
+      </section>
+
+      <section id="references">
+        <h2>8. 코드 및 매뉴얼 참고</h2>
+        <h3>8.1 코드 참고</h3>
+        <table>
+          <thead><tr><th>파일</th><th>참고 부분</th><th>용도</th></tr></thead>
+          <tbody>
+            <tr><td class="path">tools/dashboard.py</td><td>Release launcher</td><td>표준 Dashboard 실행 진입점</td></tr>
+            <tr><td class="path">tools/dogfight_dashboard/server.py</td><td><code>DashboardRepository</code></td><td>경로 후보·검증·query 적용 및 Release 루트 계약</td></tr>
+            <tr><td class="path">tools/dogfight_dashboard/static/</td><td><code>index.html</code>, <code>app.js</code></td><td>Training/Replay 경로 선택 UI와 Apply/Reset</td></tr>
+            <tr><td class="path">student/my_curriculum.py</td><td><code>MY_SCENARIO_POOL</code>, <code>get_stages()</code></td><td>학생이 직접 수정할 초기 분포와 stage 연결 예제</td></tr>
+            <tr><td class="path">src/dogfight/envs/initial_scenario.py</td><td><code>validate_scenario_pool()</code>, <code>sample_scenario_pool()</code></td><td>상태·가중치 검증과 seed 기반 샘플링</td></tr>
+            <tr><td class="path">src/dogfight/envs/single_agent_env.py</td><td>reset 초기화 경로</td><td>양 기체 상태와 scenario target mode 적용</td></tr>
+            <tr><td class="path">run_local_dogfight.py</td><td><code>build_local_env_config()</code></td><td>curriculum stage/YAML을 로컬 환경에 병합</td></tr>
+            <tr><td class="path">train_rllib.py / train_curriculum.py</td><td>bundle metadata</td><td>initial scenario summary 기록</td></tr>
+          </tbody>
+        </table>
+
+        <h3>8.2 매뉴얼 참고</h3>
+        <table>
+          <thead><tr><th>문서</th><th>참고 위치</th><th>내용</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><a href="2026_aip_rl_manual_rev10.html">2026_aip_rl_manual_rev10.html</a></td>
+              <td>Slide 18 / Appendix B</td>
+              <td>scenario pool 개요, Dashboard와 Training/Replay logdir</td>
+            </tr>
+            <tr>
+              <td><a href="student_manual_rev2.html#my_curriculum">student_manual_rev2.html</a></td>
+              <td>3. my_curriculum.py → 4. 초기 시나리오</td>
+              <td>전체 코드 예제, 상태·랜덤화 계약, 로컬 실행</td>
+            </tr>
+            <tr>
+              <td><a href="engagement_log_dashboard_guide_rev2.html">engagement_log_dashboard_guide_rev2.html</a></td>
+              <td>5. 대시보드 로그 뷰어 연결</td>
+              <td>Replay logdir 선택과 특정 실험 replay 열기</td>
+            </tr>
+            <tr>
+              <td><a href="tutorial_release_student_sac_local_viewer_manual_rev2.html">tutorial_release_student_sac_local_viewer_manual_rev2.html</a></td>
+              <td>05 tools 로그 뷰어 사용</td>
+              <td>학생 실습 흐름과 로그 뷰어 확인 항목</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="verification">
+        <h2>9. 검증 결과</h2>
+        <table>
+          <thead><tr><th>검증 항목</th><th>결과</th></tr></thead>
+          <tbody>
+            <tr><td>Release tools Replay parser/경로 계약 테스트</td><td class="status-ok">3 passed</td></tr>
+            <tr><td>scenario pool Release/MyTrainEnv 계약 테스트</td><td class="status-ok">18 passed</td></tr>
+            <tr><td>Dashboard <code>app.js</code> syntax check</td><td class="status-ok">통과</td></tr>
+            <tr><td>Dashboard CLI 신규·기존 옵션 노출</td><td class="status-ok">통과</td></tr>
+            <tr><td>로컬 실행 curriculum/YAML 옵션 노출</td><td class="status-ok">통과</td></tr>
+          </tbody>
+        </table>
+        <div class="callout warn">
+          실제 새 배포 ZIP의 파일 수와 SHA-256은 ZIP 생성 후 별도로 공지합니다.
+          이 문서는 현재 Release 작업본의 기능 및 사용 계약을 기준으로 작성되었습니다.
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    DogFightEnv Release 260721 · Student Patch Notes · 2026-07-21
+  </footer>
+
+  <script>
+    document.querySelectorAll(".copy").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const code = button.parentElement.querySelector("pre").innerText;
+        try {
+          await navigator.clipboard.writeText(code);
+          const original = button.textContent;
+          button.textContent = "Copied";
+          window.setTimeout(() => { button.textContent = original; }, 1200);
+        } catch (error) {
+          button.textContent = "Select & Copy";
+        }
+      });
+    });
+  </script>
+</body>
+</html>
