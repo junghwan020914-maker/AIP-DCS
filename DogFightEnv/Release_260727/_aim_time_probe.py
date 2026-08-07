@@ -48,14 +48,17 @@ PHASES = (
 
 
 def score_rate(dis_m, ata_deg, t_s):
-    """실제 채점과 동일: 활성 phase 중 안쪽 우선, 첫 매칭만."""
+    """실제 채점과 동일: 활성 phase 중 안쪽 우선, 첫 매칭만.
+
+    반환: (점수율, phase번호)  phase번호 0=득점없음, 1/2/3
+    """
     a = abs(ata_deg)
-    for cone, mn, mx, coef, start in PHASES:
+    for idx, (cone, mn, mx, coef, start) in enumerate(PHASES, start=1):
         if t_s < start:
             continue
         if mn <= dis_m <= mx and a <= cone:
-            return coef * (mx - dis_m) / (mx - mn)
-    return 0.0
+            return coef * (mx - dis_m) / (mx - mn), idx
+    return 0.0, 0
 
 
 def make_state(rng):
@@ -82,6 +85,8 @@ def main():
     my_cone = {1: 0, 2: 0, 3: 0, 5: 0, 10: 0}
     th_cone = {1: 0, 2: 0, 3: 0, 5: 0, 10: 0}
     my_hp = th_hp = 0.0
+    my_phase = {1: 0.0, 2: 0.0, 3: 0.0}
+    th_phase = {1: 0.0, 2: 0.0, 3: 0.0}
     band = 0
     total = 0
     wins = losses = 0
@@ -121,8 +126,14 @@ def main():
                         my_cone[c] += 1
                     if ta <= c:
                         th_cone[c] += 1
-            my_hp += score_rate(d, ma, t_s) * DT
-            th_hp += score_rate(d, ta, t_s) * DT
+            r, ph = score_rate(d, ma, t_s)
+            my_hp += r * DT
+            if ph:
+                my_phase[ph] += r * DT
+            r2, ph2 = score_rate(d, ta, t_s)
+            th_hp += r2 * DT
+            if ph2:
+                th_phase[ph2] += r2 * DT
 
         oh = float(info.get("ownship_health", 1.0))
         th_h = float(info.get("target_health", 1.0))
@@ -144,6 +155,11 @@ def main():
         print(f"  {c:>4}도 | {m:>10.2f}s | {t:>11.2f}s | {ratio:>6}")
     print(f"\n  ★ 채점단위 누적 데미지(HP/판):  나 {my_hp/n:.4f}   상대 {th_hp/n:.4f}   "
           f"순이득 {(my_hp-th_hp)/n:+.4f}")
+    print(f"  Phase별 내 득점 :  P1 {my_phase[1]/n:.4f}({100*my_phase[1]/max(my_hp,1e-9):4.1f}%)"
+          f"  P2 {my_phase[2]/n:.4f}({100*my_phase[2]/max(my_hp,1e-9):4.1f}%)"
+          f"  P3 {my_phase[3]/n:.4f}({100*my_phase[3]/max(my_hp,1e-9):4.1f}%)")
+    print(f"  Phase별 상대득점:  P1 {th_phase[1]/n:.4f}  P2 {th_phase[2]/n:.4f}  "
+          f"P3 {th_phase[3]/n:.4f}")
     print("=" * 70)
 
 

@@ -1,0 +1,100 @@
+﻿<?xml version="1.0"?>
+<!--
+  ============================================================================
+   아키타입 A : 앵글 파이터 (Angles Fighter)
+  ============================================================================
+
+  08-08 P3(자체 상대) — 과적합 방어용. 배경은 [Rule_arcE.xml] 주석 참고.
+
+  [교리 — 앵글 파이터]
+  에너지 파이터의 정반대 극단. 에너지 손실을 감수하고 **순간 선회율을 최대로** 써서
+  각을 먼저 잡는다. 한 바퀴(one-circle) 안에 승부를 보려 하고, 근접 난전(Scissors)을
+  두려워하지 않는다. 실제 교리로는 "angles fighting" / 근접 노즈-투-노즈.
+    - 대등하면 무조건 OneCircle (반경 선회)
+    - 근접하면 Scissors로 상대를 앞으로 흘려보내 각을 뺏음
+    - 방어시에도 도망가지 않고 하드턴 + 조준 블렌드로 맞불
+  우리 트리와의 차이: 우리는 에너지 판정(DECO_EnergyCheck)으로 rate/radius를 고르지만
+  이쪽은 **에너지를 아예 안 본다.** 항상 각을 산다.
+
+  이 둘(E/A)이 공중전 교리 공간의 양 극단이라, 우리 튜닝이 둘 다에서 유지되면
+  "v32 스타일에만 맞춘 값"이 아니라는 근거가 된다.
+
+  [주의] Sequence/Fallback 에 name= 금지(파서 버그). 거리 단위 m.
+  ============================================================================
+-->
+<root main_tree_to_execute="MainTree">
+
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+
+      <SelectTarget          BB="{BB}"/>
+      <DirectionVectorUpdate BB="{BB}"/>
+      <DistanceUpdate        BB="{BB}"/>
+      <CheckSight            BB="{BB}"/>
+      <AngleOffUpdate        BB="{BB}"/>
+      <AspectAngleUpdate     BB="{BB}"/>
+      <WEZUpdate             BB="{BB}" ConeDeg="1.0" MinM="152" MaxM="914"/>
+
+      <BFMDecision BB="{BB}" DetectRange="9260" Cone="30" BehindAA="90" EnergyMargin="1000"/>
+
+      <Fallback>
+
+        <!-- ── 사거리 안 + 조준 가능 → 사격 ── -->
+        <Sequence>
+          <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="914"/>
+          <DECO_LOSCheck      BB="{BB}" UpDown="Less" InputLOS="25"/>
+          <Pure BB="{BB}"/>
+        </Sequence>
+
+        <!-- ── 원거리 접근: 예측점을 겨눠 각을 미리 산다 ── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="DETECTING"/>
+          <Lead BB="{BB}" LeadGain="1.0"/>
+        </Sequence>
+
+        <!-- ── 우세: 리드 추격으로 각을 계속 조인다 ── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="OBFM"/>
+          <Fallback>
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="400"/>
+              <Scissors BB="{BB}" Freq="2.5"/>
+            </Sequence>
+            <Lead BB="{BB}" LeadGain="1.0"/>
+          </Fallback>
+        </Sequence>
+
+        <!-- ── 대등: 에너지 무시하고 항상 OneCircle(반경 선회) ── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="HABFM"/>
+          <Fallback>
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="500"/>
+              <Scissors BB="{BB}" Freq="2.5"/>
+            </Sequence>
+            <OneCircle BB="{BB}"/>
+          </Fallback>
+        </Sequence>
+
+        <!-- ── 열세: 도망 안 감. 하드턴에 조준을 크게 섞어 맞불 ── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="DBFM"/>
+          <Fallback>
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="500"/>
+              <Scissors BB="{BB}" Freq="3.0"/>
+            </Sequence>
+            <BreakTurn BB="{BB}" AimBlend="0.4"/>
+          </Fallback>
+        </Sequence>
+
+        <Task_Empty BB="{BB}"/>
+
+      </Fallback>
+
+      <PreventLandCrash BB="{BB}" FloorHard="800" FloorSoft="1500"/>
+
+    </Sequence>
+  </BehaviorTree>
+
+</root>

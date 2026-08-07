@@ -1,0 +1,103 @@
+﻿<?xml version="1.0"?>
+<!--
+  ============================================================================
+   아키타입 E : 에너지 파이터 (Energy Fighter)
+  ============================================================================
+
+  08-08 P3(자체 상대) — 과적합 방어용으로 **우리가 직접 만든** 스파링 상대.
+
+  [왜 필요한가]
+  지금까지 우리 검증은 전부 팀원 ryujan의 기체(v0~v32) 상대였다. 제어기 버그 수정은
+  상대 무관하게 성립하지만, **튜닝값**(D항 Kd=0.01/게이트 5도, 보어사이트 클램프 75도,
+  BreakTurn AimBlend=0.2 등)은 v32의 기동 스타일에 과적합됐을 수 있다. 대회에는
+  전혀 다른 교리로 만든 팀들이 나온다. 실존하는 공중전 교리의 양 극단을 직접 만들어
+  우리 튜닝이 그 위에서도 유지되는지 본다.
+
+  [교리 — 에너지 파이터]
+  실제 F-16 교리 중 "energy fighting". 선회전을 회피하고 **속도/고도 우위를 유지**하며
+  수직기동으로 각을 만든다. 물면 확실히 물고, 아니면 이탈해서 에너지를 회복한다.
+    - 에너지 우위면 TwoCircle(레이트 선회, 속도 유지)
+    - 에너지 열세면 교전을 피하고 상승/가속으로 회복 (Task_ClimbOut)
+    - 근접 난전(Scissors)은 최대한 회피 — 에너지 파이터의 최악 시나리오
+  우리 트리와의 차이: 우리는 각을 잡으러 파고들지만 이쪽은 **각을 포기하고 에너지를 산다.**
+
+  [주의] Sequence/Fallback 에 name= 금지(파서 버그). 거리 단위 m.
+  ============================================================================
+-->
+<root main_tree_to_execute="MainTree">
+
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+
+      <SelectTarget          BB="{BB}"/>
+      <DirectionVectorUpdate BB="{BB}"/>
+      <DistanceUpdate        BB="{BB}"/>
+      <CheckSight            BB="{BB}"/>
+      <AngleOffUpdate        BB="{BB}"/>
+      <AspectAngleUpdate     BB="{BB}"/>
+      <WEZUpdate             BB="{BB}" ConeDeg="1.0" MinM="152" MaxM="914"/>
+
+      <BFMDecision BB="{BB}" DetectRange="9260" Cone="30" BehindAA="90" EnergyMargin="1000"/>
+
+      <Fallback>
+
+        <!-- ── 에너지 열세면 무조건 회복 우선 (교리의 핵심) ── -->
+        <Sequence>
+          <DECO_EnergyCheck   BB="{BB}" UpDown="Less" Margin="500"/>
+          <DECO_DistanceCheck BB="{BB}" UpDown="Greater" Distance="600"/>
+          <Task_ClimbOut BB="{BB}"/>
+        </Sequence>
+
+        <!-- ── 사거리 안 + 조준 가능 → 확실히 쏜다 ── -->
+        <Sequence>
+          <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="914"/>
+          <DECO_LOSCheck      BB="{BB}" UpDown="Less" InputLOS="20"/>
+          <Pure BB="{BB}"/>
+        </Sequence>
+
+        <!-- ── 원거리 접근 ── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="DETECTING"/>
+          <Pure BB="{BB}"/>
+        </Sequence>
+
+        <!-- ── 우세: 에너지 유지하며 레이트 선회로 파고듦 ── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="OBFM"/>
+          <Fallback>
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="700"/>
+              <Lag BB="{BB}" LagDistance="0"/>
+            </Sequence>
+            <TwoCircle BB="{BB}"/>
+          </Fallback>
+        </Sequence>
+
+        <!-- ── 대등: 항상 TwoCircle(속도 유지 선회). OneCircle/Scissors는 쓰지 않는다 ── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="HABFM"/>
+          <TwoCircle BB="{BB}"/>
+        </Sequence>
+
+        <!-- ── 열세: 하드턴으로 각 벗기고 곧바로 에너지 회복 ── -->
+        <Sequence>
+          <DECO_BFMCheck BB="{BB}" CheckBFM="DBFM"/>
+          <Fallback>
+            <Sequence>
+              <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="500"/>
+              <BreakTurn BB="{BB}" AimBlend="0.0"/>
+            </Sequence>
+            <Task_ClimbOut BB="{BB}"/>
+          </Fallback>
+        </Sequence>
+
+        <Task_Empty BB="{BB}"/>
+
+      </Fallback>
+
+      <PreventLandCrash BB="{BB}" FloorHard="800" FloorSoft="1500"/>
+
+    </Sequence>
+  </BehaviorTree>
+
+</root>
