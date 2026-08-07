@@ -1,4 +1,8 @@
-#include "DECO_StuckCheck.h"
+﻿#include "DECO_StuckCheck.h"
+
+// #define STUCK_DBG_TRACE	// uncomment for one-off per-tick trace
+// 08-07: 이 노드는 현재 XML 비활성이지만, 재활성 시 매틱 stdout 동기 플러시가
+// 60Hz/16ms 응답 제약에 직접 걸리므로 미리 매크로로 가둬둔다.
 
 namespace Action
 {
@@ -36,19 +40,23 @@ namespace Action
 		{
 			// 상대가 조준을 놓친 순간 - 즉시 반격(구 DECO_TargetLOSCheck의 wobble감지 흡수) +
 			// 스턱 타이머도 함께 리셋. 이 노드가 매틱 무조건 평가되므로 이 분기가 실제로 실행됨.
+#ifdef STUCK_DBG_TRACE
 			std::fprintf(stdout, "[WOBBLE_FIRE] team=%d losTgt=%.2f\n", (int)(*BB)->Team, CurrentLOS);
 			std::fflush(stdout);
+#endif
 			LastFreeTime = RunningTime;
 			return NodeStatus::SUCCESS;
 		}
 
 		if ((RunningTime - LastFreeTime) >= StuckSeconds)
 		{
+#ifdef STUCK_DBG_TRACE
 			std::fprintf(stdout,
 				"[STUCK_FIRE] team=%d t=%.2f stuckFor=%.2f losTgt=%.2f losMe=%.2f dist=%.1f bfm=%d\n",
 				(int)(*BB)->Team, RunningTime, RunningTime - LastFreeTime, CurrentLOS,
 				(*BB)->Los_Degree, (*BB)->Distance, (int)(*BB)->BFM);
 			std::fflush(stdout);
+#endif
 			return NodeStatus::SUCCESS;
 		}
 

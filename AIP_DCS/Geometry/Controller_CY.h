@@ -46,6 +46,15 @@ class StickController
 	Vector3 LastKnownLocation;
 	bool HasLastLocation = false;
 
+	// 08-07 D항용. 실측(공식조건 40시드 vs v32)에서 병목이 명확히 드러났다:
+	//   |LOS|<10도 13.2s -> <3도 5.6s -> <1도 1.27s  (10도에서 1도로 가며 90% 소실)
+	// 제어기 정수절삭 수정으로 <10도는 +21% 늘었는데 <1도는 +0.8%로 요지부동 —
+	// 즉 기수를 목표 근처로 "가져가는" 능력은 충분하고 거기서 "멈춰 세우는" 능력이 없다.
+	// ERROR_Effect가 P항(LOS/6)과 계단형 I항뿐이고 미분항이 아예 없어서, 수렴 중에도
+	// 명령이 줄지 않아 반드시 오버슛하고 조준점 주위를 진동한다.
+	float LastLOS = -1.0f;      // 직전 틱 LOS(deg). 음수 = 미초기화
+	bool HasLastLOS = false;
+
 public:
 	StickController();
 	float GetLOSErrorSUM(float LOSError);

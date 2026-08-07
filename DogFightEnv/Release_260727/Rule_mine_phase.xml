@@ -27,7 +27,28 @@
       <CheckSight            BB="{BB}"/>
       <AngleOffUpdate        BB="{BB}"/>
       <AspectAngleUpdate     BB="{BB}"/>
-      <WEZUpdate             BB="{BB}" ConeDeg="1.0" MinM="152" MaxM="914"/>
+      <!-- 08-07 시간인식(Phase): WEZ Phase는 공간 폴백이 아니라 **시간 게이트**다.
+             Phase1 t>=0s   LOS<1도  152~914m   계수 1.0
+             Phase2 t>=100s LOS<2도  152~1067m  계수 0.3
+             Phase3 t>=150s LOS<3도  152~1219m  계수 0.1
+           원뿔 입체각비가 1:4:9라 t>=150s에는 "판정이 나는 각도"가 실질 3배로 넓어진다
+           (내부 우선순위라 총 기대득점은 1.0 + 3*0.3 + 5*0.1 = 2.4배). 지금까지는
+           WEZ 판정을 1도로 고정해둬서, 후반의 넓어진 원뿔에서 사격자세(Pure)를
+           유지해야 할 구간에 트리가 그 사실을 전혀 몰랐다.
+           데미지는 밴드 안쪽일수록 크므로(152m 계수1.0, 914m 0) MaxM은 규정값을 쓰되
+           실제 교전은 ApplyClosureThrottle이 200~300m로 당긴다.
+           Fallback + DECO_TimeCheck로 안쪽(늦은) phase부터 평가한다. -->
+      <Fallback>
+        <Sequence>
+          <DECO_TimeCheck BB="{BB}" UpDown="Greater" Seconds="150"/>
+          <WEZUpdate      BB="{BB}" ConeDeg="3.0" MinM="152" MaxM="1219"/>
+        </Sequence>
+        <Sequence>
+          <DECO_TimeCheck BB="{BB}" UpDown="Greater" Seconds="100"/>
+          <WEZUpdate      BB="{BB}" ConeDeg="2.0" MinM="152" MaxM="1067"/>
+        </Sequence>
+        <WEZUpdate BB="{BB}" ConeDeg="1.0" MinM="152" MaxM="914"/>
+      </Fallback>
 
       <!-- ============ Superior? 판정 -> 국면 분류 ============ -->
       <BFMDecision BB="{BB}" DetectRange="9260" Cone="30" BehindAA="90" EnergyMargin="1000"/>

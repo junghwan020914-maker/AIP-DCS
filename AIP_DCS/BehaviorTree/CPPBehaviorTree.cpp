@@ -86,10 +86,12 @@ void UCPPBehaviorTree::init()
 		Factory.registerNodeType<Action::DECO_EnergyCheck>("DECO_EnergyCheck");
 		Factory.registerNodeType<Action::DECO_WEZCheck>("DECO_WEZCheck");
 		Factory.registerNodeType<Action::DECO_AltitudeCheck>("DECO_AltitudeCheck");
+		Factory.registerNodeType<Action::DECO_TimeCheck>("DECO_TimeCheck");
 		Factory.registerNodeType<Action::Task_Empty>("Task_Empty");
 
 		// maneuver Task nodes (VP generation)
 		Factory.registerNodeType<Action::Pure>("Pure");
+		Factory.registerNodeType<Action::Extend>("Extend");
 		Factory.registerNodeType<Action::Lead>("Lead");
 		Factory.registerNodeType<Action::MergeReversal>("MergeReversal");
 		Factory.registerNodeType<Action::Lag>("Lag");
@@ -268,8 +270,33 @@ Vector3 UCPPBehaviorTree::GetVP()
  void UCPPBehaviorTree::RunCPPBT(Vector3& VP, float& Throttle, bool& AimmingMode)
 {
 	
+	// 08-07: RunningTime을 라운드 경과시간으로 신뢰할 수 있게 만든다.
+	// 주최측 reset()이 no-op이라 BT 인스턴스가 에피소드/라운드 경계에서 재생성되지 않고,
+	// RunningTime도 리셋되지 않아 배치·다라운드 전체에 걸쳐 계속 누적된다. 지금까지는
+	// BreakTurn/Controller_CY가 각자 "위치 점프" 휴리스틱으로 개별 대응해왔는데, WEZ Phase가
+	// 시간 게이트(t>=100s 2도, t>=150s 3도)라는 것이 확인된 이상 경과시간 자체가 전술 입력이
+	// 되므로 발생원에서 한 번에 리셋한다.
+	// 감지는 두 신호를 OR로 쓴다.
+	//  (1) 위치 점프: 한 틱 실이동은 350m/s * 0.0167s ≒ 5.8m라 300m는 물리적으로 불가능.
+	//      100m로 잡으면 네트워크 지연으로 프레임이 밀렸을 때(0.33s 갭이면 100m) 라운드
+	//      중간에 오탐이 나서 Phase3 구간인데 Phase1로 착각할 수 있다. 300m면 1초(60프레임)
+	//      연속 유실이 있어야 오탐인데, 그 정도면 이미 "응답불능" 판정 영역이다.
+	//  (2) 상한 클램프: 라운드는 최대 200초다. 혹시 (1)이 리스폰을 놓쳐도(새 스폰이 직전
+	//      종료지점 근처인 희귀 케이스) 210초를 넘으면 무조건 새 라운드로 보고 되돌린다.
+	// (MyLocation_Cartesian은 이 함수 호출 전에 이미 갱신됨)
+	{
+		const Vector3 myNow = BB->MyLocation_Cartesian;
+		const bool respawned = HasLastBTLocation && myNow.distance(LastBTLocation) > 300.0;
+		if (respawned || BB->RunningTime > 210.0)
+		{
+			BB->RunningTime = 0.0;
+		}
+		LastBTLocation = myNow;
+		HasLastBTLocation = true;
+	}
+
 	BB->RunningTime += BB->DeltaSecond;	//시뮬레이선 타임에 따른 델타 타임 설정
-	
+
 	try
 	{
 		BB->Throttle = -1.0f;	// sentinel: Task가 스로틀을 직접 정하면 그 값을 존중

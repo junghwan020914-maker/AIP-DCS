@@ -1,6 +1,7 @@
-#pragma once
+﻿#pragma once
 #include "Task_Empty.h"
 #include "Pure.h"
+#include "Extend.h"
 #include "Lead.h"
 #include "Lag.h"
 #include "BreakTurn.h"

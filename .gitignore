@@ -39,3 +39,14 @@ Thumbs.db
 
 # Claude 런타임 파일
 .claude/
+
+# 실험용 임시 DLL (A/B 대조군, 재생성 가능)
+DogFightEnv/Release_*/AIP_ctrlfix.dll
+DogFightEnv/Release_*/AIP_base2.dll
+DogFightEnv/Release_*/AIP_rangefix.dll
+DogFightEnv/Release_*/AIP_rollsym.dll
+DogFightEnv/Release_*/AIP_intonly.dll
+DogFightEnv/Release_*/AIP_dterm.dll
+DogFightEnv/Release_*/AIP_dgate.dll
+DogFightEnv/Release_*/AIP_best.dll
+DogFightEnv/Release_*/AIP_headbase.dll

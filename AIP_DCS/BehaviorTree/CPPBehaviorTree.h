@@ -48,6 +48,11 @@ private:
 	//Lat, Lon, 고도는 meter
 	Vector3 LLAtoCartesian(Vector3 LLA, Vector3 BaseLLA);
 
+	// 08-07: 라운드 리스폰 감지용(RunCPPBT에서 RunningTime을 0으로 되돌리는 데 사용).
+	// 주최측 reset()이 no-op이라 BT 인스턴스가 라운드/에피소드 경계에서 재생성되지 않는다.
+	Vector3 LastBTLocation;
+	bool HasLastBTLocation = false;
+
 public:	
 	int ID;			//리눅스환경에서 사용하는 변수
 	int ForceID;		//리숙스환경에서 사용하는 변수

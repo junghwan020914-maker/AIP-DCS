@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -237,11 +237,13 @@
     <ClInclude Include="BehaviorTree\BT_Content\Service\WEZUpdate.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Decorator\DECO_WEZCheck.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Decorator\DECO_AltitudeCheck.h" />
+    <ClInclude Include="BehaviorTree\BT_Content\Decorator\DECO_TimeCheck.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\Task_ClimbOut.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Service\ServiceNodes.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\TaskNodes.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\Task_Empty.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\Pure.h" />
+    <ClInclude Include="BehaviorTree\BT_Content\Task\Extend.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\Lead.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\Lag.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\BreakTurn.h" />
@@ -294,9 +296,11 @@
     <ClCompile Include="BehaviorTree\BT_Content\Service\WEZUpdate.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Decorator\DECO_WEZCheck.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Decorator\DECO_AltitudeCheck.cpp" />
+    <ClCompile Include="BehaviorTree\BT_Content\Decorator\DECO_TimeCheck.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Task\Task_ClimbOut.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Task\Task_Empty.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Task\Pure.cpp" />
+    <ClCompile Include="BehaviorTree\BT_Content\Task\Extend.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Task\Lead.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Task\Lag.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Task\BreakTurn.cpp" />

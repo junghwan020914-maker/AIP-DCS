@@ -643,14 +643,27 @@ class DogFightEnv(gym.Env):
     # 두고, Phase1이 안 맞을 때만 Phase2/3을 폴백으로 추가.
     # Phase1과 동일 관례: 규정에 적힌 각도값을 ata_deg에 직접 비교(추가로 반띵 안 함) --
     # Phase1도 angle_deg(2.0)/2=1.0을 "LOS<1도" 그대로에 직접 비교하는 방식이라 이를 따름.
+    # 08-06 중대 정정: Phase2/3은 "항상"이 아니라 **교전 경과시간**으로 열린다.
+    # 출처는 대회 오리엔테이션 PPT 슬라이드 7(팀원 ryujan이 원본 대조해 확인, 커밋 eeecad5).
+    #   Phase1 t>=0s   LOS<1도, 500~3000ft, 계수 1.0
+    #   Phase2 t>=100s LOS<2도, 500~3500ft, 계수 0.3
+    #   Phase3 t>=150s LOS<3도, 500~4000ft, 계수 0.1
+    # 기존 구현은 시간 게이트가 없어 0초부터 Phase2/3 부분점수를 줬음 -> 초반 100초의
+    # "빗맞은 조준"이 전부 득점으로 잡혀 양쪽 데미지가 과대계상됐다. 콘 각도/사거리/계수
+    # 자체는 공식값과 일치했으므로 게이트만 추가한다.
     _WEZ_PHASES_FT = (
         (2.0, 500.0, 3500.0),  # Phase2: LOS<2deg, 500-3500ft, coef0.3
         (3.0, 500.0, 4000.0),  # Phase3: LOS<3deg, 500-4000ft, coef0.1
     )
     _WEZ_PHASE_COEFS = (0.3, 0.1)
+    _WEZ_PHASE_START_S = (100.0, 150.0)
 
-    def _phase23_damage(self, dis_m: float, ata_deg: float) -> float:
-        for (los_limit_deg, min_ft, max_ft), coef in zip(self._WEZ_PHASES_FT, self._WEZ_PHASE_COEFS):
+    def _phase23_damage(self, dis_m: float, ata_deg: float, elapsed_s: float) -> float:
+        for (los_limit_deg, min_ft, max_ft), coef, start_s in zip(
+            self._WEZ_PHASES_FT, self._WEZ_PHASE_COEFS, self._WEZ_PHASE_START_S
+        ):
+            if elapsed_s < start_s:
+                continue
             min_m = min_ft * FEET_TO_METER
             max_m = max_ft * FEET_TO_METER
             if min_m <= dis_m <= max_m and abs(ata_deg) <= los_limit_deg:
@@ -677,11 +690,13 @@ class DogFightEnv(gym.Env):
             if half_wez_angle_deg >= abs(target_ata_deg):
                 ownship_damage = ((max_range_m - dis_m) / base_range_m) * self._delta_t
 
-        # Phase1 안 맞았을 때만 Phase2/3 폴백 (규정 우선순위 Phase1>2>3 반영)
+        # Phase1 안 맞았을 때만 Phase2/3 폴백 (규정 우선순위 Phase1>2>3 반영).
+        # Phase2/3은 경과시간 게이트를 통과해야 열린다(위 _WEZ_PHASE_START_S 참고).
+        elapsed_s = self._ep_step_count * self._delta_t
         if target_damage == 0.0:
-            target_damage = self._phase23_damage(dis_m, ownship_ata_deg) * self._delta_t
+            target_damage = self._phase23_damage(dis_m, ownship_ata_deg, elapsed_s) * self._delta_t
         if ownship_damage == 0.0:
-            ownship_damage = self._phase23_damage(dis_m, target_ata_deg) * self._delta_t
+            ownship_damage = self._phase23_damage(dis_m, target_ata_deg, elapsed_s) * self._delta_t
 
         self.ownship_damage = ownship_damage
         self.target_damage = target_damage
