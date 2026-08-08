@@ -50,3 +50,16 @@ DogFightEnv/Release_*/AIP_dterm.dll
 DogFightEnv/Release_*/AIP_dgate.dll
 DogFightEnv/Release_*/AIP_best.dll
 DogFightEnv/Release_*/AIP_headbase.dll
+DogFightEnv/Release_*/AIP_ab0*.dll
+DogFightEnv/Release_*/AIP_bs*.dll
+DogFightEnv/Release_*/AIP_boresight.dll
+DogFightEnv/Release_*/AIP_cand.dll
+DogFightEnv/Release_*/AIP_damp50.dll
+DogFightEnv/Release_*/AIP_dstrong*.dll
+DogFightEnv/Release_*/AIP_floor30.dll
+DogFightEnv/Release_*/AIP_pg4*.dll
+DogFightEnv/Release_*/AIP_revert75.dll
+DogFightEnv/Release_*/AIP_rollcos.dll
+DogFightEnv/Release_*/AIP_threat*.dll
+DogFightEnv/Release_*/AIP_verify.dll
+DogFightEnv/Release_*/AIP_vpj_*.dll

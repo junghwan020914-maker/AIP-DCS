@@ -53,6 +53,12 @@ private:
 	Vector3 LastBTLocation;
 	bool HasLastBTLocation = false;
 
+	// 08-08 트리 복잡도 가설 검증용. "분기가 많아 기동 전환이 잦으면 VP가 튀어 제어기
+	// 추종이 깨진다"를 재려면 분기 개수가 아니라 **VP 방향의 불연속**을 직접 봐야 한다.
+	// 제어기가 실제로 받는 것은 보어사이트 클램프 이후의 VP이므로 그 시점에서 잰다.
+	Vector3 LastVPDir;
+	bool HasLastVPDir = false;
+
 public:	
 	int ID;			//리눅스환경에서 사용하는 변수
 	int ForceID;		//리숙스환경에서 사용하는 변수

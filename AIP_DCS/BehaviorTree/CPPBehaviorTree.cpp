@@ -245,6 +245,37 @@ StickValue UCPPBehaviorTree::Step(PlaneInfo MyInfo, int NumofOtherPlane, PlaneIn
 		}
 	}
 
+#ifdef VPJUMP_DBG_TRACE
+	// 08-08: 트리 복잡도 가설 계측. 한 틱 사이 VP 방향이 몇 도 튀는지 잰다.
+	// 같은 DLL로 Rule_mine.xml / Rule_arcA.xml 을 각각 돌리면 제어기·환경이 완전히
+	// 동일하고 **트리만 다른** 비교가 된다. 밴드(152~914m) 안에서만 찍는다 — 득점이
+	// 나는 구간의 추종 품질만 관심사이기 때문.
+	{
+		Vector3 vpDir = VP - BB->MyLocation_Cartesian;
+		double vlen = vpDir.length();
+		if (vlen > 1e-6)
+		{
+			vpDir = vpDir / vlen;
+			double jump = -1.0;
+			if (HasLastVPDir)
+			{
+				double c = vpDir.dot(LastVPDir);
+				if (c > 1.0) c = 1.0;
+				if (c < -1.0) c = -1.0;
+				jump = std::acos(c) * 57.2957795;
+			}
+			LastVPDir = vpDir;
+			HasLastVPDir = true;
+			if (jump >= 0.0 && BB->Distance > 152.0f && BB->Distance < 914.0f)
+			{
+				std::fprintf(stdout, "[VPJUMP] jump=%.3f losMe=%.3f dist=%.1f bfm=%d\n",
+					jump, BB->Los_Degree, BB->Distance, (int)BB->BFM);
+				std::fflush(stdout);
+			}
+		}
+	}
+#endif
+
 	R = Controller.GetStick(
 		BB->MyLocation_Cartesian,
 		Vector3(BB->MyRotation_EDegree.Roll * DEG2RAD,
