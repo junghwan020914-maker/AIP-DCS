@@ -68,8 +68,11 @@
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\..\PropertySheets\Essential_release.props" />
-    <Import Project="..\..\PropertySheets\LDFP_Model.props" />
+    <Import Project="..\PropertySheets\Essential_release.props" />
+    <!-- 08-08: Release|x64만 이 props를 가져와 RTVBase.lib / RTVSimulationLibLDFP.lib /
+         ModelBaseLDFP.lib 를 링크에 추가한다. 이들은 주최측 대형 시뮬 프레임워크용이고
+         우리 단독 BT DLL에는 없다(Debug|x64는 애초에 이 props를 안 쓴다). 링크 실패
+         (LNK1181)의 원인이라 Release에서도 제외한다. -->
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

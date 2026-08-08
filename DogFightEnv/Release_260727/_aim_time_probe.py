@@ -66,11 +66,17 @@ def make_state(rng):
     alt_m = float(rng.uniform(2000.0, 30000.0)) * FEET
     spd = float(rng.uniform(200.0, 300.0))
     hdg = float(rng.uniform(0.0, 360.0))
+    # 08-08 정정: 2000/2500/3000ft는 **기체 간 거리**이고, 두 기체는 서로의 3-9 라인
+    # (날개 축 = 기수 기준 좌우)에 나란히 놓여 **반대 방향**을 본다. 기수 대 기수(헤드온)가
+    # 아니다. 이전 구현은 헤드온이라 시작하자마자 서로 WEZ 안에 있었고, 그래서 초반부터
+    # 득점이 났다 — 실제로는 둘 다 90도 이상 선회해야 교전이 시작된다.
+    # 분리 방향 = 내 기수의 수직(hdg+90). 상대 기수 = hdg+180.
     half = sep_m / 2.0
     rad = np.deg2rad(hdg)
-    dn, de = np.cos(rad) * half, np.sin(rad) * half
-    return ([-dn, -de, -alt_m, 0.0, 0.0, hdg, spd],
-            [dn, de, -alt_m, 0.0, 0.0, (hdg + 180.0) % 360.0, spd])
+    prad = np.deg2rad(hdg + 90.0)
+    pn, pe = np.cos(prad) * half, np.sin(prad) * half
+    return ([-pn, -pe, -alt_m, 0.0, 0.0, hdg, spd],
+            [pn, pe, -alt_m, 0.0, 0.0, (hdg + 180.0) % 360.0, spd])
 
 
 def main():

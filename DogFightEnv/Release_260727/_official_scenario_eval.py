@@ -46,9 +46,13 @@ def make_state(rng):
     # 3-9 라인 정면: 서로 마주보고 sep_m 만큼 떨어뜨린다.
     half = sep_m / 2.0
     rad = np.deg2rad(hdg)
-    dn, de = np.cos(rad) * half, np.sin(rad) * half
-    own = [-dn, -de, -alt_m, 0.0, 0.0, hdg, spd]
-    tgt = [dn, de, -alt_m, 0.0, 0.0, (hdg + 180.0) % 360.0, spd]
+    # 08-08 정정: 2000/2500/3000ft는 **기체 간 거리**이고 두 기체는 서로의 3-9 라인
+    # (날개 축)에 나란히 놓여 **반대 방향**을 본다. 기수 대 기수(헤드온)가 아니다.
+    # 이전 구현은 헤드온이라 시작 즉시 서로 WEZ 안이었다.
+    prad = np.deg2rad(hdg + 90.0)
+    pn, pe = np.cos(prad) * half, np.sin(prad) * half
+    own = [-pn, -pe, -alt_m, 0.0, 0.0, hdg, spd]
+    tgt = [pn, pe, -alt_m, 0.0, 0.0, (hdg + 180.0) % 360.0, spd]
     return own, tgt, sep_m, alt_m, spd
 
 
