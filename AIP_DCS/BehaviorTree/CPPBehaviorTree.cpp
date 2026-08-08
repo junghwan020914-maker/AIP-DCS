@@ -211,6 +211,14 @@ StickValue UCPPBehaviorTree::Step(PlaneInfo MyInfo, int NumofOtherPlane, PlaneIn
 	// 매 틱 기수가 갱신되며 재계산되는 폐루프라, 기수가 돌아온 만큼 VP도 원래 목표로 수렴한다.
 	double DebugOffBoresightDeg = 0.0;
 	{
+		// 08-08 실험: 이 클램프가 "제어기 불연속을 피하려는 우회책"이라 보고 피치를
+		// 연속화한 뒤 완화해봤으나 **명확한 회귀**였다(공식조건 40시드 vs v32, 순이득/승패):
+		//        75도(현행)  +0.7474  38승 2패
+		//        90도        +0.6423  31승 8패
+		//        120도       +0.7010  32승 7패
+		// 계단을 없앴는데도 나빠졌으므로 원인은 불연속이 아니라 제어기 구조다
+		// (Roll_Effect = 1 - |UT|/90 이 큰 각도에서 0으로 죽음). 이 클램프는 우회책이
+		// 아니라 **제어기를 자기가 잘 동작하는 영역 안에 붙잡아두는 장치**다. 유지할 것.
 		const double MAX_OFFBORESIGHT_DEG = 75.0;
 		const double RAD2DEG = 57.2957795;
 
@@ -253,6 +261,23 @@ StickValue UCPPBehaviorTree::Step(PlaneInfo MyInfo, int NumofOtherPlane, PlaneIn
 		BB->MyRotation_EDegree.Roll, BB->MyRotation_EDegree.Pitch, BB->MyRotation_EDegree.Yaw,
 		R.RollCMD, R.PitchCMD, R.RudderCMD, Throttle);
 	std::fflush(stdout);
+#endif
+
+#ifdef THREAT_DBG_TRACE
+	// 08-08 진단용: **상대가 나에게 조준을 잡고 있는 순간에만** 찍는다.
+	// arcA(앵글 파이터) 매치업에서 상대만 득점하는 틱의 46.4%가 내 ATA>90도였는데
+	// (v32 상대는 4.8%), 이게 (a) 선회 선택 실패로 뒤를 잡힌 것인지 (b) 내 방어기동
+	// (BreakTurn은 설계상 적 반대쪽으로 기수를 돌린다)이 안 먹혀 그대로 물린 것인지
+	// 외부 관측만으로는 못 가른다. 그 순간의 BFM 국면을 직접 본다.
+	// 매틱이 아니라 위협 구간(losTgt<3도 + 밴드 내)에서만 찍으므로 출력량은 판당 수백 줄.
+	// bfm: 0=OBFM 1=HABFM 2=DBFM 3=DETECTING 4=SCISSORS 5=NONE
+	if (BB->Los_Degree_Target < 3.0f && BB->Distance > 152.0f && BB->Distance < 914.0f)
+	{
+		std::fprintf(stdout, "[THREAT] team=%d bfm=%d dist=%.1f losTgt=%.2f losMe=%.2f aa=%.2f\n",
+			(int)BB->Team, (int)BB->BFM, BB->Distance,
+			BB->Los_Degree_Target, BB->Los_Degree, BB->MyAspectAngle_Degree);
+		std::fflush(stdout);
+	}
 #endif
 
 	return R;
