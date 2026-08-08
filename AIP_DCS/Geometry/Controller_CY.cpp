@@ -232,9 +232,9 @@ StickValue StickController::GetStick(Vector3 MyLocation_FNED, Vector3 MyRotation
 	//    아니라 **최종 정착 구간**뿐인데 전 구간에 걸어버린 것이 잘못이었다.
 	// → 정밀조준 진입 구간(LOS < DGateDeg)에만 걸고, 기여 상한도 크게 낮춘다.
 	//    이 구간에서 P항은 최대 DGateDeg/6 = 0.83이므로 ±0.15면 유의미하되 지배적이지 않다.
-	const float Kd = 0.01f;
-	const float DGateDeg = 5.0f;
-	const float DClamp = 0.15f;
+	const float Kd = 0.02f;
+	const float DGateDeg = 8.0f;
+	const float DClamp = 0.25f;
 	float dLOS = 0.0f;
 	if (HasLastLOS)
 		dLOS = (LOS - LastLOS) * 60.0f;   // deg/s (틱 0.0166666s 고정)
@@ -248,7 +248,19 @@ StickValue StickController::GetStick(Vector3 MyLocation_FNED, Vector3 MyRotation
 	//float ERROR_Effect = clamp(LOS / 6, 0, 1.5);
 
 
-	float Roll_Effect = 1 - clamp(std::abs(UTAngle * RADTODEG) / 90, 0, 1);
+	// ✅ 08-08: UT각 감쇠를 **코사인 투영**으로 교체. 기하학적으로 이쪽이 정확하다 —
+	// 필요한 선회 중 실제로 당김 평면에 놓인 성분(UT=45도에서 선형 0.5 vs 코사인 0.707).
+	// 중간 각도에서 피치를 더 줘 **수렴이 빨라진다**.
+	// ⚠️ 단, 이 변경은 **위 D항 강화와 반드시 짝으로만** 이득이다. 공식조건 40시드 vs v32:
+	//     선형 + D약(Kd .01/5도/.15)   +0.7474  38승 2패   <- 이전 기준선
+	//     코사인 + D약                 +0.7096  37승 3패   (-5.1%)
+	//     선형  + D강(Kd .02/8도/.25)  +0.7107  37승 3패   (-4.9%)
+	//     **코사인 + D강**             **+0.8391  40승 0패**  (+12.3%)
+	// 각각 단독으로는 -5%인데 합치면 +12.3%다. 코사인이 만드는 진동을 강화된 D가
+	// 잡아줘서 '빠른 수렴 + 안정된 정착'이 동시에 성립한다 — <3도 7.94->9.86s(수렴),
+	// <1도 1.36->1.49s(정착), 피격 0.1459->0.1395(최저).
+	// **한쪽만 되돌리면 반드시 회귀한다. 짝으로 유지할 것.**
+	float Roll_Effect = clamp(std::cos(UTAngle), 0, 1);
 
 	float Horizon_Effect;
 	if (std::abs(UTAngle * RADTODEG) <= 90)
