@@ -17,9 +17,21 @@ namespace Action
 			// 이 고도(m) 아래로는 조준점을 내리지 않는다.
 			InputPort<double>("FloorAlt", 2000.0, "never aim below this altitude (m)"),
 			// 이 시각(s) 이전에만 발동. 0이면 제한 없음.
-			// 목적이 **머지 전 에너지 확보**라면 초반에만 걸어야 한다 — 교전이 붙은 뒤에
-			// 내려가면 접촉을 잃는다(특히 상승하는 에너지 파이터 상대).
-			InputPort<double>("BeforeSeconds", 0.0, "engage only before this time (s); 0 = no limit")
+			// ❌ 08-10 2차 기각: BeforeSeconds=30으로 "머지 전 에너지 확보"만 노렸으나
+			//    승점 142.0(기준선 144.5). arcE는 30.0으로 복구됐지만 v29가 26.5->25.0,
+			//    v32가 28.5->27.0으로 **둘 다 기준선 아래**가 됐다. 두 가지를 배웠다:
+			//    (a) v29의 이득은 머지가 아니라 **지속적** 에너지 관리에서 나온다
+			//        (무제한판 27.5 vs 30초판 25.0). 내 "머지 전" 해석이 틀렸다.
+			//    (b) 더 약한 개입이 더 나빴다 — t=30의 **하드 전환**이 하강 중·저속·자세가
+			//        어긋난 순간에 일반 BFM으로 튀는 불연속을 만든다.
+			//    -> 시간으로 자르는 접근 자체를 버린다. 기본값 0(비활성) 유지.
+			InputPort<double>("BeforeSeconds", 0.0, "engage only before this time (s); 0 = no limit"),
+			// 상대가 나보다 이만큼(m) 넘게 **위에** 있으면 발동하지 않는다.
+			// 1차 기각의 기전이 정확히 이것이다 — 우리가 내려가는 동안 상대(arcE)가
+			// ClimbOut으로 올라가 수직으로 이별했고, 30판 전부 밴드 진입 0회였다.
+			// BFM 원칙으로도 **올라가는 상대에게서 내려가면 안 된다**. 따라가야 한다.
+			// 0 이하면 이 게이트를 쓰지 않는다.
+			InputPort<double>("TargetAboveMax", 0.0, "skip if target is higher than me by more than this (m); <=0 disables")
 		};
 	}
 
@@ -33,6 +45,7 @@ namespace Action
 		const double diveSlope  = getInput<double>("DiveSlope").value();
 		const double floorAlt   = getInput<double>("FloorAlt").value();
 		const double beforeSec  = getInput<double>("BeforeSeconds").value();
+		const double tgtAboveMax= getInput<double>("TargetAboveMax").value();
 
 		Vector3 my = (*BB)->MyLocation_Cartesian;
 		const double dist = (*BB)->Distance;
@@ -43,6 +56,9 @@ namespace Action
 		if (beforeSec > 0.0 && (*BB)->RunningTime > beforeSec)
 			return NodeStatus::FAILURE;						// 초반 한정 모드
 		if (dist <= distBeyond) return NodeStatus::FAILURE;	// 사거리 근처면 싸운다
+		if (tgtAboveMax > 0.0 &&
+		    ((*BB)->TargetLocaion_Cartesian.Z - alt) > tgtAboveMax)
+			return NodeStatus::FAILURE;						// 상대가 위에 있으면 내려가지 않는다
 		if (spd  >= speedBelow) return NodeStatus::FAILURE;	// 이미 충분히 빠르다
 		if (alt  <= altAbove)   return NodeStatus::FAILURE;	// 내려갈 여유가 없다
 
