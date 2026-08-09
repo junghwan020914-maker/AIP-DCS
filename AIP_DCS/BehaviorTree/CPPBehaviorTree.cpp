@@ -294,6 +294,22 @@ StickValue UCPPBehaviorTree::Step(PlaneInfo MyInfo, int NumofOtherPlane, PlaneIn
 	std::fflush(stdout);
 #endif
 
+#ifdef BFM_HIST_TRACE
+	// 08-09 진단: BFM 국면 + 최상위 반격분기 발동 여부를 1초에 한 번 샘플링.
+	// 배관 테스트(Seconds=0/Distance=3000, 거의 항상 발동해야 함)가 현행과 자릿수까지
+	// 동일하게 나와, 그 분기가 속한 **OBFM 블록에 도달 자체를 못 한다**는 의심이 생겼다.
+	// 위협시점 트레이스에서도 HABFM 60.4% / DBFM 39.6% / OBFM 0% 였다.
+	{
+		static int tick = 0;
+		if ((tick++ % 60) == 0)
+		{
+			std::fprintf(stdout, "[BFMHIST] bfm=%d losTgt=%.1f dist=%.0f losMe=%.1f\n",
+				(int)BB->BFM, BB->Los_Degree_Target, BB->Distance, BB->Los_Degree);
+			std::fflush(stdout);
+		}
+	}
+#endif
+
 #ifdef THREAT_DBG_TRACE
 	// 08-08 진단용: **상대가 나에게 조준을 잡고 있는 순간에만** 찍는다.
 	// arcA(앵글 파이터) 매치업에서 상대만 득점하는 틱의 46.4%가 내 ATA>90도였는데
