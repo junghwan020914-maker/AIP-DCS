@@ -15,7 +15,11 @@ namespace Action
 			// 하강 기울기: 조준점을 거리 * 이 값만큼 내 고도 아래에 찍는다.
 			InputPort<double>("DiveSlope", 0.5, "aim point drop = Distance * DiveSlope"),
 			// 이 고도(m) 아래로는 조준점을 내리지 않는다.
-			InputPort<double>("FloorAlt", 2000.0, "never aim below this altitude (m)")
+			InputPort<double>("FloorAlt", 2000.0, "never aim below this altitude (m)"),
+			// 이 시각(s) 이전에만 발동. 0이면 제한 없음.
+			// 목적이 **머지 전 에너지 확보**라면 초반에만 걸어야 한다 — 교전이 붙은 뒤에
+			// 내려가면 접촉을 잃는다(특히 상승하는 에너지 파이터 상대).
+			InputPort<double>("BeforeSeconds", 0.0, "engage only before this time (s); 0 = no limit")
 		};
 	}
 
@@ -28,6 +32,7 @@ namespace Action
 		const double distBeyond = getInput<double>("DistBeyond").value();
 		const double diveSlope  = getInput<double>("DiveSlope").value();
 		const double floorAlt   = getInput<double>("FloorAlt").value();
+		const double beforeSec  = getInput<double>("BeforeSeconds").value();
 
 		Vector3 my = (*BB)->MyLocation_Cartesian;
 		const double dist = (*BB)->Distance;
@@ -35,6 +40,8 @@ namespace Action
 		const double alt  = my.Z;
 
 		// 자체 게이트 — 하나라도 어긋나면 아래 분기에 넘긴다.
+		if (beforeSec > 0.0 && (*BB)->RunningTime > beforeSec)
+			return NodeStatus::FAILURE;						// 초반 한정 모드
 		if (dist <= distBeyond) return NodeStatus::FAILURE;	// 사거리 근처면 싸운다
 		if (spd  >= speedBelow) return NodeStatus::FAILURE;	// 이미 충분히 빠르다
 		if (alt  <= altAbove)   return NodeStatus::FAILURE;	// 내려갈 여유가 없다
