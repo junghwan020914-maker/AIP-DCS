@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<!--
+   아키타입 V : 수직 파이터 (Vertical Fighter)
+
+   08-10 P3(자체 상대) 확충 — arcA(앵글) / arcE(에너지) / arcD(방어)에 이은 네 번째 원형.
+
+  [왜 필요한가]
+  08-10 `EnergyTurn` 1차 실패가 정확히 **수직 상호작용**에서 났다. 우리가 슬라이스로
+  내려가는 동안 arcE가 ClimbOut으로 올라가 30판 전부 밴드 진입 0회, 승점 -15.0이었다.
+  그런데 arcE는 "에너지가 열세일 때만" 올라간다 — 수직을 **주무기로** 쓰는 상대는
+  상대 풀에 아직 없다. 대회에는 수직 기동을 교리로 삼는 팀이 나올 수 있고,
+  우리 트리에는 수직 대응 분기가 사실상 없다(One/TwoCircle은 수평 선회 선택이다).
+
+  [교리 — 수직 파이터]
+  실존 교리 중 "vertical fighting" / 요요(yo-yo) 계열. 수평 선회로 각을 겨루는 대신
+  **수직면을 써서** 각을 만든다. 에너지가 있으면 위로 올라가 위치 우위를 잡고,
+  고도 우위가 생기면 내리꽂아 공격한다(하이 요요의 단순화 형태).
+    - 에너지 열세 -> Task_ClimbOut (수직 상승으로 에너지/위치 축적)
+    - 고도 우위   -> EnergyTurn 을 **공격 하강**으로 전용
+                     (SpeedBelow를 크게 잡아 속도 게이트를 사실상 해제,
+                      TargetAboveMax는 쓰지 않아 상대 고도와 무관하게 내리꽂는다)
+    - 그 외       -> Pure 추격
+
+  [주의] `EnergyTurn`은 원래 우리 트리의 에너지 회복용으로 만든 노드지만, 포트를
+  이렇게 주면 "고도를 위치 우위로 바꿔 내리꽂는" 동작이 된다. 노드를 새로 만들지 않고
+  원형을 세울 수 있으므로 그대로 쓴다.
+-->
+<root main_tree_to_execute="MainTree">
+
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+
+      <!-- ===================== 상태 갱신 ===================== -->
+      <SelectTarget          BB="{BB}"/>
+      <DirectionVectorUpdate BB="{BB}"/>
+      <DistanceUpdate        BB="{BB}"/>
+      <CheckSight            BB="{BB}"/>
+      <AngleOffUpdate        BB="{BB}"/>
+      <AspectAngleUpdate     BB="{BB}"/>
+      <WEZUpdate             BB="{BB}" ConeDeg="1.0" MinM="152" MaxM="914"/>
+
+      <BFMDecision BB="{BB}" DetectRange="9260" Cone="30" BehindAA="90" EnergyMargin="1000"/>
+
+      <Fallback>
+
+        <!-- 사거리 안 + 조준 -> 쏜다 (수직 교리라도 기회는 잡는다) -->
+        <Sequence>
+          <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="914"/>
+          <DECO_LOSCheck      BB="{BB}" UpDown="Less" InputLOS="40"/>
+          <Pure BB="{BB}"/>
+        </Sequence>
+
+        <!-- 에너지 열세 -> 수직 상승 -->
+        <Sequence>
+          <DECO_EnergyCheck BB="{BB}" UpDown="Less" Margin="300"/>
+          <Task_ClimbOut BB="{BB}"/>
+        </Sequence>
+
+        <!-- 고도 우위 -> 내리꽂기 (속도 게이트 사실상 해제, 상대 고도 무관) -->
+        <Sequence>
+          <DECO_AltitudeCheck BB="{BB}" MinAlt="3500.0"/>
+          <EnergyTurn BB="{BB}" SpeedBelow="600.0" AltAbove="3000.0" DistBeyond="600.0"
+                      DiveSlope="0.8" FloorAlt="1800.0"/>
+        </Sequence>
+
+        <Pure BB="{BB}"/>
+      </Fallback>
+
+      <PreventLandCrash BB="{BB}" FloorHard="800" FloorSoft="1500" TTGSeconds="6.0"/>
+
+    </Sequence>
+  </BehaviorTree>
+
+</root>

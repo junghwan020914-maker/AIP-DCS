@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<!--
+   아키타입 D : 순수 방어형 (Pure Defensive / Evader)
+
+   08-10 P3(자체 상대) 확충 — arcA(앵글) / arcE(에너지)에 이어 세 번째 원형.
+
+  [왜 필요한가]
+  08-10 국면구조 진단(`_stalemate_diag.py`)에서 우리 무득점 판의 정체가 밝혀졌다:
+      무득점(6) 공세  0.0% / 수세 42.2% / 공세밴드  0.0s
+      득점 (24) 공세 53.2% / 수세  0.0% / 공세밴드 11.8s
+  중간 지대 없이 이분적이다. 즉 우리 약점은 조준 정밀도가 아니라 **전환 능력**이다.
+  그런데 기존 상대 풀에는 "전환 능력만 순수하게 시험하는" 상대가 없다 — v29/v32/arcA/
+  arcE는 모두 반격해오므로 우리 점수가 공격력과 방어력에 동시에 의존한다.
+
+  arcD는 **절대 공격하지 않는다.** 따라서:
+    - 우리가 질 수 없다(상대 피격 = 항상 0). 무승부 아니면 승리다.
+    - 점수는 오직 **"움직이는 표적을 잡을 수 있는가"** 하나만 측정한다.
+  `_degenerate_probe.py`의 duck(직진 표적)과 짝을 이룬다 — duck은 정지 표적,
+  arcD는 **적극 회피하는** 표적이다.
+
+  [교리 — 순수 방어]
+  실존 교리라기보다 극단 시험용이다. 거리와 무관하게 항상 회피 기동만 한다.
+    - 근접(600m 미만) -> Jinking(고빈도 저크). 예측불가성이 방어력이다.
+    - 그 외          -> BreakTurn(AimBlend=0, 순수 회피). 조준을 섞지 않는다.
+  추적/사격 노드(Pure/Lag/Lead/OneCircle/TwoCircle/Scissors)를 **전혀 쓰지 않는다.**
+
+  [주의] 상태 갱신과 PreventLandCrash는 그대로 둔다 — 방어형이라고 추락하면
+  규정 제6조1항으로 우리가 이겨버려서 시험 자체가 무의미해진다.
+-->
+<root main_tree_to_execute="MainTree">
+
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+
+      <!-- ===================== 상태 갱신 ===================== -->
+      <SelectTarget          BB="{BB}"/>
+      <DirectionVectorUpdate BB="{BB}"/>
+      <DistanceUpdate        BB="{BB}"/>
+      <CheckSight            BB="{BB}"/>
+      <AngleOffUpdate        BB="{BB}"/>
+      <AspectAngleUpdate     BB="{BB}"/>
+      <WEZUpdate             BB="{BB}" ConeDeg="1.0" MinM="152" MaxM="914"/>
+
+      <!-- 국면 분류는 돌려두되(블랙보드 일관성) 분기에는 쓰지 않는다. -->
+      <BFMDecision BB="{BB}" DetectRange="9260" Cone="30" BehindAA="90" EnergyMargin="1000"/>
+
+      <!-- ============ 항상 회피. 국면과 무관. ============ -->
+      <Fallback>
+        <!-- 근접: 고빈도 저크 -->
+        <Sequence>
+          <DECO_DistanceCheck BB="{BB}" UpDown="Less" Distance="600"/>
+          <Jinking BB="{BB}" Freq="3.0"/>
+        </Sequence>
+        <!-- 그 외: 순수 브레이크 턴. AimBlend=0 이라 조준을 전혀 섞지 않는다. -->
+        <BreakTurn BB="{BB}" AimBlend="0.0" EscalationStep="0.0" MaxAimBlend="0.0" StuckImproveDeg="5.0"/>
+      </Fallback>
+
+      <PreventLandCrash BB="{BB}" FloorHard="800" FloorSoft="1500" TTGSeconds="6.0"/>
+
+    </Sequence>
+  </BehaviorTree>
+
+</root>
