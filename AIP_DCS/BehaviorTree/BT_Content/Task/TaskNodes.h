@@ -2,6 +2,8 @@
 #include "Task_Empty.h"
 #include "Pure.h"
 #include "Extend.h"
+#include "Sprint.h"
+#include "EnergyTurn.h"
 #include "Lead.h"
 #include "Lag.h"
 #include "BreakTurn.h"

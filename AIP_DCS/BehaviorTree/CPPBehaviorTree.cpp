@@ -92,6 +92,8 @@ void UCPPBehaviorTree::init()
 		// maneuver Task nodes (VP generation)
 		Factory.registerNodeType<Action::Pure>("Pure");
 		Factory.registerNodeType<Action::Extend>("Extend");
+		Factory.registerNodeType<Action::Sprint>("Sprint");
+		Factory.registerNodeType<Action::EnergyTurn>("EnergyTurn");
 		Factory.registerNodeType<Action::Lead>("Lead");
 		Factory.registerNodeType<Action::MergeReversal>("MergeReversal");
 		Factory.registerNodeType<Action::Lag>("Lag");

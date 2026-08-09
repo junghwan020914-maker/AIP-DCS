@@ -247,6 +247,8 @@
     <ClInclude Include="BehaviorTree\BT_Content\Task\Task_Empty.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\Pure.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\Extend.h" />
+    <ClInclude Include="BehaviorTree\BT_Content\Task\Sprint.h" />
+    <ClInclude Include="BehaviorTree\BT_Content\Task\EnergyTurn.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\Lead.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\Lag.h" />
     <ClInclude Include="BehaviorTree\BT_Content\Task\BreakTurn.h" />
@@ -304,6 +306,8 @@
     <ClCompile Include="BehaviorTree\BT_Content\Task\Task_Empty.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Task\Pure.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Task\Extend.cpp" />
+    <ClCompile Include="BehaviorTree\BT_Content\Task\Sprint.cpp" />
+    <ClCompile Include="BehaviorTree\BT_Content\Task\EnergyTurn.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Task\Lead.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Task\Lag.cpp" />
     <ClCompile Include="BehaviorTree\BT_Content\Task\BreakTurn.cpp" />
