@@ -9,9 +9,21 @@
 서로의 3-9 라인(날개 축)에 나란히 놓여 **반대 방향**을 본다. 헤드온이 아니다.
 이전 헤드온 구현은 시작 즉시 서로 WEZ 안이라 Phase1 득점이 과대계상됐다.
 
+🔴 08-10 이 도구의 사각지대 — **반드시 같이 읽을 것.**
+여기 상대는 전부 "제대로 기동하는 BT"다(ryujan v29/v32, 자작 arcA/arcE, 이전 세대).
+그래서 **퇴화 상대에 대한 실패를 원리상 못 잡는다.** 실제로 승점 144.5/150(96.3%)인
+상태에서 `_degenerate_probe.py`로 재보니 0.70 스로틀로 직진 수평비행하는 표적을
+**6시드 중 4판에서 200초 내내 못 잡았다**(시작거리에서 1m도 못 좁힌 판 다수).
+전추력 수평비행 최고속도는 505m/s인데 추격 실속도가 421m/s로, 조준 진동에
+에어프레임 성능의 17%를 버리고 있었다. 이 손실은 실전 교전에도 계속 작용한다.
+
+→ 채택 판정 때는 **`_degenerate_probe.py --kinds duck`도 같이 돌릴 것.**
+   (runner는 스로틀 1.0 동등기체 정미익추격이라 못 잡는 게 물리적으로 정상 — 무시)
+
 사용:
     python _suite_eval.py --targets AIP_v32.dll,AIP_v29.dll,AIP_arcA.dll,AIP_arcE.dll
     python _suite_eval.py --ownship AIP_cand.dll --preset all --num-seeds 30
+    python _degenerate_probe.py --ownship AIP_cand.dll --kinds duck --num-seeds 6
 Not part of the student template; safe to delete after use.
 """
 from __future__ import annotations
