@@ -19,6 +19,12 @@ namespace Action
 {
 	class PreventLandCrash : public SyncActionNode
 	{
+	private:
+		// 08-09 시간여유(TTG, time-to-ground) 판정용. 강하율은 위치 차분으로 구한다.
+		double LastAlt = -1.0;
+		bool HasLastAlt = false;
+		double SinkRateEMA = 0.0;		// 지수이동평균(틱 노이즈 억제)
+
 	public:
 		PreventLandCrash(const std::string& name, const NodeConfiguration& config) : SyncActionNode(name, config) {}
 		~PreventLandCrash() {}
