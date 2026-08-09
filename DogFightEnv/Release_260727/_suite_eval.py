@@ -56,6 +56,10 @@ def run_one(ownship: str, target: str, n: int) -> dict:
     cone1 = 0
     wins = losses = 0
     crash = 0
+    # 08-10: 상대 추락도 센다. prev 상대 4승14패를 "한쪽만 안전장치를 건 비대칭"으로
+    # 해석했으나 우리 추락만 세고 있어 **검증되지 않은 상태**였다. 규정상 추락은 즉시
+    # 패배이므로 상대가 자멸하는 판은 실제로는 우리 승리다.
+    tgt_crash = 0
     secs_total = 0.0
     # 08-10: 규정 제6조2항 — 200초 만료 시 **잔여 HP가 높기만 하면 승리**다.
     # 즉 규칙이 보상하는 것은 마진의 **크기**가 아니라 **부호**다. 평균 순이득만 보면
@@ -82,6 +86,7 @@ def run_one(ownship: str, target: str, n: int) -> dict:
         info = {}
         step = 0
         my_min_alt = 1e9
+        tgt_min_alt = 1e9
         seed_my = seed_th = 0.0
         while not (terminated or truncated):
             _, _, terminated, truncated, info = env.step(np.zeros(4, dtype=np.float32))
@@ -94,6 +99,7 @@ def run_one(ownship: str, target: str, n: int) -> dict:
             ta = abs(float(g._get_antenna_train_angle(
                 env._target_state, env._ownship_state, False)))
             my_min_alt = min(my_min_alt, -float(env._ownship_state[2]))
+            tgt_min_alt = min(tgt_min_alt, -float(env._target_state[2]))
             if 152.4 <= d <= 914.4 and ma <= 1.0:
                 cone1 += 1
             r, ph = score_rate(d, ma, t_s)
@@ -111,9 +117,22 @@ def run_one(ownship: str, target: str, n: int) -> dict:
             zero_scored += 1
         if my_min_alt < 300.0:
             crash += 1
+        if tgt_min_alt < 300.0:
+            tgt_crash += 1
+        # 08-10: 규정 제6조1항 — **추락(고도 300m 이하)은 즉시 패배**다. HP 비교보다 우선한다.
+        # 기존엔 우리 추락만 세고 승패엔 반영하지 않아, 상대가 자멸한 판을 무승부/패배로
+        # 집계하고 있었다(leadout 실험에서 arcA가 11판 자멸하는 것이 드러남).
         oh = float(info.get("ownship_health", 1.0))
         thh = float(info.get("target_health", 1.0))
-        if thh < oh:
+        my_crashed = my_min_alt < 300.0
+        tgt_crashed = tgt_min_alt < 300.0
+        if my_crashed and not tgt_crashed:
+            losses += 1
+        elif tgt_crashed and not my_crashed:
+            wins += 1
+        elif my_crashed and tgt_crashed:
+            pass                      # 양쪽 추락 -> 무승부 취급
+        elif thh < oh:
             wins += 1
         elif oh < thh:
             losses += 1
@@ -123,7 +142,8 @@ def run_one(ownship: str, target: str, n: int) -> dict:
     return dict(target=target, w=wins, l=losses, n=n, draws=n - wins - losses,
                 zero=zero_scored, margins=margins,
                 my=my_hp / n, th=th_hp / n, net=(my_hp - th_hp) / n,
-                cone1=cone1 / 60 / n, crash=crash, secs=secs_total / n,
+                cone1=cone1 / 60 / n, crash=crash, tgt_crash=tgt_crash,
+                secs=secs_total / n,
                 p1=100 * my_phase[1] / tot, p2=100 * my_phase[2] / tot,
                 p3=100 * my_phase[3] / tot)
 
@@ -151,16 +171,16 @@ def main():
     print("\n" + "=" * 96)
     print(f"[전수 평가] {args.num_seeds}시드/상대   나={args.ownship}   기하=어빔(3-9라인)+반대방향")
     print(f"  {'상대':<16} {'승':>3} {'패':>3} | {'내득점':>8} {'피격':>8} {'순이득':>9} | "
-          f"{'<1도s':>6} {'추락':>4} {'교전s':>6} | {'P1%':>5} {'P2%':>5} {'P3%':>5}")
+          f"{'<1도s':>6} {'추락내/상':>5} {'교전s':>6} | {'P1%':>5} {'P2%':>5} {'P3%':>5}")
     for r in rows:
         print(f"  {r['target']:<16} {r['w']:>3} {r['l']:>3} | {r['my']:>8.4f} {r['th']:>8.4f} "
-              f"{r['net']:>+9.4f} | {r['cone1']:>6.2f} {r['crash']:>4} {r['secs']:>6.1f} | "
+              f"{r['net']:>+9.4f} | {r['cone1']:>6.2f} {r['crash']:>2}/{r['tgt_crash']:<2} {r['secs']:>6.1f} | "
               f"{r['p1']:>5.1f} {r['p2']:>5.1f} {r['p3']:>5.1f}")
     if rows:
         nets = np.array([r["net"] for r in rows])
         print(f"\n  순이득 평균 {nets.mean():+.4f}   최저 {nets.min():+.4f}"
               f"({rows[int(nets.argmin())]['target']})   "
-              f"총 추락 {sum(r['crash'] for r in rows)}판")
+              f"총 추락 내 {sum(r['crash'] for r in rows)}판 / 상대 {sum(r['tgt_crash'] for r in rows)}판")
         print("  ※ 채택 판정은 **최저값**을 본다 — 평균만 보면 한 상대에 과적합된 변경을 통과시킨다.")
         print()
         print("  [규정 제6조2항] 200초 만료 시 **잔여 HP가 높기만 하면 승리** — 마진의 크기가")
