@@ -57,6 +57,12 @@ def run_one(ownship: str, target: str, n: int) -> dict:
     wins = losses = 0
     crash = 0
     secs_total = 0.0
+    # 08-10: 규정 제6조2항 — 200초 만료 시 **잔여 HP가 높기만 하면 승리**다.
+    # 즉 규칙이 보상하는 것은 마진의 **크기**가 아니라 **부호**다. 평균 순이득만 보면
+    # "이미 압도하는 매치업을 더 압도하는" 변경이 통과하고, 정작 점수를 좌우하는
+    # "마진이 0 근처인 판"은 안 보인다. 판별 시드와 무득점 판을 따로 센다.
+    zero_scored = 0
+    margins = []
 
     for seed in range(n):
         rng = np.random.default_rng(seed)
@@ -76,6 +82,7 @@ def run_one(ownship: str, target: str, n: int) -> dict:
         info = {}
         step = 0
         my_min_alt = 1e9
+        seed_my = seed_th = 0.0
         while not (terminated or truncated):
             _, _, terminated, truncated, info = env.step(np.zeros(4, dtype=np.float32))
             step += 1
@@ -91,12 +98,17 @@ def run_one(ownship: str, target: str, n: int) -> dict:
                 cone1 += 1
             r, ph = score_rate(d, ma, t_s)
             my_hp += r * DT
+            seed_my += r * DT
             if ph:
                 my_phase[ph] += r * DT
             r2, _ = score_rate(d, ta, t_s)
             th_hp += r2 * DT
+            seed_th += r2 * DT
 
         secs_total += step * DT
+        margins.append(seed_my - seed_th)
+        if seed_my <= 0.0:
+            zero_scored += 1
         if my_min_alt < 300.0:
             crash += 1
         oh = float(info.get("ownship_health", 1.0))
@@ -108,7 +120,8 @@ def run_one(ownship: str, target: str, n: int) -> dict:
         env.close()
 
     tot = max(my_hp, 1e-9)
-    return dict(target=target, w=wins, l=losses, n=n,
+    return dict(target=target, w=wins, l=losses, n=n, draws=n - wins - losses,
+                zero=zero_scored, margins=margins,
                 my=my_hp / n, th=th_hp / n, net=(my_hp - th_hp) / n,
                 cone1=cone1 / 60 / n, crash=crash, secs=secs_total / n,
                 p1=100 * my_phase[1] / tot, p2=100 * my_phase[2] / tot,
@@ -149,6 +162,20 @@ def main():
               f"({rows[int(nets.argmin())]['target']})   "
               f"총 추락 {sum(r['crash'] for r in rows)}판")
         print("  ※ 채택 판정은 **최저값**을 본다 — 평균만 보면 한 상대에 과적합된 변경을 통과시킨다.")
+        print()
+        print("  [규정 제6조2항] 200초 만료 시 **잔여 HP가 높기만 하면 승리** — 마진의 크기가")
+        print("  아니라 **부호**가 점수를 만든다. 예선 단판제 기준 승1.0 / 무0.5 / 패0.")
+        print(f"  {'상대':<16} {'승점':>7} {'/만점':>6} | {'무':>3} {'무득점판':>8} | "
+              f"{'마진 최소':>10} {'0.01미만':>9}")
+        for r in rows:
+            pts = r["w"] + 0.5 * r["draws"]
+            m = np.array(r["margins"])
+            near = int((m < 0.01).sum())
+            print(f"  {r['target']:<16} {pts:>7.1f} {r['n']:>6} | {r['draws']:>3} {r['zero']:>8} | "
+                  f"{m.min():>+10.4f} {near:>9}")
+        allpts = sum(r["w"] + 0.5 * r["draws"] for r in rows)
+        alln = sum(r["n"] for r in rows)
+        print(f"  → 총 승점 {allpts:.1f} / {alln}  ({100*allpts/alln:.1f}%)")
     print("=" * 96)
 
 
