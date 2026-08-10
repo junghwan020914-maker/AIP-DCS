@@ -1,4 +1,4 @@
-/*
+﻿/*
 	JSBSim을 조종하기 위한 스틱 러더 제어기
 
 	추적점을 통과하기 위한 조종값을 만드는 제어기가 아닌 추적점을 바라보기 위한 조종값을 만드는것을 목표로함
@@ -42,6 +42,9 @@ class StickController
 	int SumCount;
 	float MF[20];
 	int FilterIndex;
+	// 08-10: 롤 명령 이동평균. 러더에는 20샘플 필터가 있는데 롤에는 없었다.
+	float RollMF[20] = {0};
+	int RollFilterIndex = 0;
 	std::vector<float> ErrorSum;
 	Vector3 LastKnownLocation;
 	bool HasLastLocation = false;

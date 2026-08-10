@@ -252,6 +252,35 @@ StickValue StickController::GetStick(Vector3 MyLocation_FNED, Vector3 MyRotation
 	// 작은 LOS에서는 필요한 롤 응답 자체도 작으므로 손해가 아니다.
 	const float RollAuthDeg = 1.0f;
 	RollCMD = RollCMD * clamp(LOS / RollAuthDeg, 0, 1);
+
+	// 🔁 08-10 재도전: **롤 명령에 이동평균 필터**를 건다.
+	// 러더에는 원래 20샘플 이동평균이 있고(위 MF[]), 그 정수절삭을 고쳤더니 단독 +7.3%가
+	// 나왔다. 그런데 **롤에는 필터가 아예 없다** — 매 틱 계산된 값이 그대로 나간다.
+	// 앞서 시도한 롤 감쇠창(RollAuthDeg 3/6/12)은 *게인*을 줄인 것이라 진동 자체는
+	// 그대로 남았고 duck 무득점 4/6이 요지부동이었다. 필터는 다른 처방이다 —
+	// 정상상태 권한은 유지하면서 **고주파 성분만** 걷어낸다.
+	//
+	// 왜 지금 다시 하는가(08-10 세 증상이 하나로 수렴):
+	//   duck(직진 도주)  6시드 중 4판 무득점, 시작거리에서 1m도 못 좁힘
+	//   arcV(수직 도주)  승점 6.0/10로 전 상대 중 최악, 무득점 8판, 득점 100%가 Phase3
+	//   계측           전추력 수평 505m/s 가능한데 추격 실속도 421m/s (-17%)
+	// 셋 다 "이탈하는 상대를 못 따라잡는다"이고 원인은 조준 진동의 유도항력이다.
+	// RollWindow=1이면 필터 없음(원본과 동일)이라 A/B가 깨끗하다.
+	const int RollWindow = 1;
+	if (RollWindow > 1)
+	{
+		RollMF[RollFilterIndex % 20] = RollCMD;
+		RollFilterIndex++;
+		int n = (RollWindow < 20) ? RollWindow : 20;
+		float sum = 0.0f;
+		for (int i = 0; i < n; i++)
+		{
+			int idx = (RollFilterIndex - 1 - i) % 20;
+			if (idx < 0) idx += 20;
+			sum += RollMF[idx];
+		}
+		RollCMD = sum / (float)n;
+	}
 	//러더 커맨드 생성 부분
 	float RudderCMD = 0;
 
