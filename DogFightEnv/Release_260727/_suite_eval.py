@@ -67,6 +67,14 @@ PRESETS = {
     #    공유하면 트리 실험 때 상대 트리까지 같이 바뀌어 비교가 무효가 된다
     #    (ryujan이 이 충돌로 스파링 상대가 이틀간 죽어 있었다).
     "core": ["AIP_v32.dll", "AIP_v29.dll", "AIP_arcA.dll", "AIP_arcE.dll", "AIP_prev.dll"],
+    # 08-10 신설 원형 2종. `core`에 넣지 않고 별도 프리셋으로 둔다 — core 수치는 오랜
+    # 비교 이력(144.5 등)이 걸려 있어 상대를 추가하면 과거와 대조가 끊긴다.
+    #   arcD 순수 방어형 : 절대 공격하지 않으므로 **질 수 없다.** 점수가 오직
+    #                      "움직이는 표적을 잡을 수 있는가"만 측정한다(기준선 10.0/10).
+    #   arcV 수직 파이터 : **우리 최악의 매치업**(기준선 6.0/10, e3 6.5/10).
+    #                      10판 전부 중립 98%로 교전 자체가 성립하지 않는다.
+    #                      트리에 수직 추격 분기가 없다는 구조적 공백 때문이다.
+    "arc": ["AIP_arcA.dll", "AIP_arcE.dll", "AIP_arcD.dll", "AIP_arcV.dll"],
     # 전체: 위 + 구버전 계열 + 팀원 yuno
     "all": ["AIP_v32.dll", "AIP_v29.dll", "AIP_arcA.dll", "AIP_arcE.dll",
             "AIP_v7.dll", "AIP_v6.dll", "AIP_v5.dll", "AIP_v1.dll",
