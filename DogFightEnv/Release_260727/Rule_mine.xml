@@ -138,6 +138,21 @@
         <EnergyTurn BB="{BB}" SpeedBelow="235.0" AltAbove="3000.0" DistBeyond="1000.0"
                     DiveSlope="0.5" FloorAlt="2000.0" TargetAboveMax="400.0"/>
 
+        <!-- 🆕 08-10: 사거리 밖에서 표적이 크게 위에 있으면 **급상승을 따라가지 않는다.**
+             방위는 표적 그대로 두고 조준점의 상승 성분만 자른다.
+             근거(`_match_trace.py`, vs arcV seed0 시계열):
+                 t=30  적고도 3791 (dH -1383) 적피치 +70.0   <- 상대가 줌 상승
+                 t=40  내고도 3519 내피치+51.7 내속도 192    <- 따라 올라가며 느려짐
+                 t=50  내고도 4056 내속도 193 | 적고도 2507 적속도 267
+                                                             <- 나는 높고 느리고 상대는 낮고 빠름
+             `Pure`가 표적 위치를 조준하므로 상대가 1400m 위에 있으면 조준점이 급상승
+             방향이 되고, 우리가 그대로 따라 올라가 최악의 에너지 상태가 된다.
+             **arcV는 줌 상승을 미끼로 쓴다.** 상대는 반드시 내려와야 하므로 에너지를
+             지키는 편이 낫다 — 우리 트리는 수평 선회전에 잘 튜닝돼 있다(arcA/arcE 30/30).
+             아래로는 제한하지 않는다(강하는 에너지를 벌고 바닥은 PreventLandCrash가 지킨다).
+             게이트는 노드 자체에 있다(거리>914m, 표적이 300m 넘게 위). -->
+        <FlatPursuit BB="{BB}" DistBeyond="914.0" TargetAboveMin="800.0" MaxClimbSlope="0.0" MinClimbSlope="0.9" MinEnergyMargin="2000.0"/>
+
         <Sequence>
           <DECO_TargetLOSCheck BB="{BB}" UpDown="Greater" InputLOS="45"/>
           <Pure BB="{BB}"/>
