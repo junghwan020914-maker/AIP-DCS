@@ -32,6 +32,23 @@
 +2.0으로 앞선다. 대회는 미지의 40상대와 싸우므로 **다상대 지표로 판정**한다.
 `prev` 상대 성적이 나쁘다는 이유만으로 기각하지 말 것(좋다고 채택하지도 말 것).
 
+🔴🔴 08-10 **가장 중요한 주의 — 인샘플 이득의 약 1/6만 전이된다.**
+지금까지 모든 튜닝이 시드 0~29에서 이루어졌다. `--seed-offset 30`으로 처음 재보니:
+
+    구성              시드 0~29   시드 30~59
+    오늘 채택본         116.5       111.0
+    오늘 이전 트리      113.5       110.5
+    **채택 이득**      **+3.0**    **+0.5**
+
+시드 30~59는 **실제로 더 어렵다**(이전 트리도 -3.0). 그러니 하락 자체는 과적합이 아니다.
+그러나 **채택으로 얻은 이득이 +3.0 -> +0.5로 줄어든다.** 나머지는 시드 적합이었다.
+또 인샘플에서 0이던 패배가 아웃오브샘플에서는 4~5판 나온다 — **"패배 0"은 인샘플 성질이다.**
+
+➡️ **채택 기준을 이에 맞춰 쓸 것:**
+   - 30시드에서 ±1~2점 차이는 **실력 차이가 아니라 시드 적합일 가능성이 높다.**
+   - 채택 전 `--seed-offset 30`으로 **홀드아웃 검증**을 할 것.
+   - 구조적 수정(버그·결함)은 전이되지만, **게이트값 튜닝은 잘 전이되지 않는다.**
+
 사용:
     python _suite_eval.py --targets AIP_v32.dll,AIP_v29.dll,AIP_arcA.dll,AIP_arcE.dll
     python _suite_eval.py --ownship AIP_cand.dll --preset all --num-seeds 30
@@ -82,7 +99,7 @@ PRESETS = {
 }
 
 
-def run_one(ownship: str, target: str, n: int) -> dict:
+def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
     my_hp = th_hp = 0.0
     my_phase = {1: 0.0, 2: 0.0, 3: 0.0}
     cone1 = 0
@@ -100,7 +117,7 @@ def run_one(ownship: str, target: str, n: int) -> dict:
     zero_scored = 0
     margins = []
 
-    for seed in range(n):
+    for seed in range(off, off + n):
         rng = np.random.default_rng(seed)
         own, tgt = make_state(rng)
         env = DogFightWrapper(
@@ -186,6 +203,10 @@ def main():
     ap.add_argument("--targets", default="")
     ap.add_argument("--preset", choices=sorted(PRESETS), default="core")
     ap.add_argument("--num-seeds", type=int, default=30)
+    # 08-10: 아웃오브샘플 검증용. 지금까지 모든 튜닝이 시드 0~29에서 이루어졌는데
+    # 대회는 40시드이고 우리가 본 적 없는 시드가 섞인다. 시드 집합 과적합 여부를
+    # 한 번도 확인한 적이 없어 오프셋을 넣는다.
+    ap.add_argument("--seed-offset", type=int, default=0)
     args = ap.parse_args()
 
     targets = ([t.strip() for t in args.targets.split(",") if t.strip()]
@@ -196,7 +217,7 @@ def main():
         if not (ROOT / t).exists():
             print(f"  (건너뜀, 파일 없음) {t}", flush=True)
             continue
-        r = run_one(args.ownship, t, args.num_seeds)
+        r = run_one(args.ownship, t, args.num_seeds, args.seed_offset)
         rows.append(r)
         print(f"  {t:<16} 완료  순이득 {r['net']:+.4f}  {r['w']}승{r['l']}패", flush=True)
 
