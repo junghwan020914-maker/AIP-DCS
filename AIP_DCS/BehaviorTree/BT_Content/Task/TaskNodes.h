@@ -4,6 +4,7 @@
 #include "Extend.h"
 #include "Sprint.h"
 #include "EnergyTurn.h"
+#include "FlatPursuit.h"
 #include "Lead.h"
 #include "Lag.h"
 #include "BreakTurn.h"
