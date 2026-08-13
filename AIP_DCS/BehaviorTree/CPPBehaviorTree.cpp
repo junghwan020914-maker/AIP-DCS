@@ -97,6 +97,7 @@ void UCPPBehaviorTree::init()
 		Factory.registerNodeType<Action::Sprint>("Sprint");
 		Factory.registerNodeType<Action::EnergyTurn>("EnergyTurn");
 		Factory.registerNodeType<Action::FlatPursuit>("FlatPursuit");
+		Factory.registerNodeType<Action::LastDitch>("LastDitch");
 		Factory.registerNodeType<Action::Lead>("Lead");
 		Factory.registerNodeType<Action::MergeReversal>("MergeReversal");
 		Factory.registerNodeType<Action::Lag>("Lag");
