@@ -425,14 +425,34 @@ Vector3 UCPPBehaviorTree::GetVP()
 	}
 	catch (const std::exception& e)
 	{
-		//원인을 알 수 없는 예외가 발생할 경우 VP를 (0,0,0)으로 설정하고 Throttle을 1로 설정하여 일단 최대한 안전하게 행동하도록 설정
-		VP = Vector3(0,0,0);	// VP 값
-		Throttle = 1.0f;	//
+		// 🔴 08-10 수정. 원본은 세 가지가 잘못돼 있었다:
+		//  (1) `VP = (0,0,0)` 은 "안전"이 아니라 **좌표 원점을 조준하라**는 뜻이다.
+		//      우리 위치에 따라 지면으로 내리꽂는 명령이 되고, 규정 제6조1항상
+		//      **추락은 즉시 패배**다. 일시적 오류가 패배로 확정된다.
+		//  (2) 마지막의 `throw;` 때문에 위에서 설정한 "안전값"이 **실제로 쓰이지 않는다.**
+		//      예외가 Step() 밖으로 전파된다(로컬 하네스에서는 `OSError: BT Step failed`로
+		//      나타난다 — 실제로 겪었다). 서버에서는 기권/중단으로 이어질 수 있다.
+		//  (3) 매 틱 예외가 나면 stdout 2줄씩 60Hz로 쏟는다.
+		// -> **안전한 퇴화**로 바꾼다: 수평 기수 방향으로 완만히 상승하며 직진.
+		//    지면에서 멀어지는 방향이라 최악의 경우에도 추락을 부르지 않는다.
+		//    로그는 최초 1회만 남긴다(진단은 되되 틱 예산을 갉지 않게).
+		{
+			Vector3 my = BB->MyLocation_Cartesian;
+			Vector3 f = BB->MyForwardVector;
+			Vector3 fh(f.X, f.Y, 0.0);
+			if (fh.length() < 1e-3) fh = Vector3(1.0, 0.0, 0.0);
+			fh.normalize();
+			VP = my + fh * 2000.0 + Vector3(0.0, 0.0, 200.0);	// 직진 + 완만한 상승
+			Throttle = 0.9f;
+		}
 
-		std::cout << "ERROR!!!!!!!!! Behavior Tree Execution Failed: " << e.what() << std::endl;
-		std::cout << "Temp Result VP : (0,0,0), Throttle : 1" << std::endl;
-		
-		throw;
+		static bool s_reported = false;
+		if (!s_reported)
+		{
+			s_reported = true;
+			std::cout << "BT Execution Failed (once): " << e.what() << std::endl;
+		}
+		// 재던지지 않는다 — 안전값으로 계속 비행하는 편이 항상 낫다.
 	}
 
 	
