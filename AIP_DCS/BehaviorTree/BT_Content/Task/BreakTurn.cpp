@@ -39,13 +39,27 @@ namespace Action
 		// 에피소드가 바뀌어도 절대 발동하지 않아 이전 판(전혀 다른 기하)의 LatchedDir이 새 판
 		// 시작에도 그대로 들고 갈 수 있음이 확인됨(같은 시드가 배치안/단독실행에서 결과가
 		// 달랐음). 위치가 큰 폭으로 점프하면(=새 판 리스폰) 강제로 재래치.
-		bool episodeReset = !HasLastLocation || my.distance(LastKnownLocation) > 3000.0;
+		// 🔴 08-10 추가: **시간 역행 감지.** 위 위치 판정은 3000m인데 `CPPBehaviorTree`의
+		// RunningTime 리셋은 300m 기준이라, 리스폰 이동이 300~3000m면 RunningTime만 0으로
+		// 돌아가고 여기는 리셋되지 않는 구멍이 있었다. 그러면 이렇게 된다:
+		//     now = 0 (리셋)          NextRelatchTime = 150 (직전 라운드 값)
+		//     LastTickTime = 199      -> now - LastTickTime = -199 이라 갭 감지도 실패
+		//     justEntered = !HasLatch || false || false || (0 >= 150 -> false)
+		// `HasLatch`가 참이면 **직전 라운드의 래치 방향을 그대로 들고 가고 새 라운드
+		// 150초까지 재래치가 잠긴다** — 방어기동이 엉뚱한 방향으로 고정된다.
+		// RunningTime은 라운드 안에서 단조증가이므로 **역행은 리셋일 때만** 일어난다.
+		// (`DECO_StuckCheck`이 이미 같은 방식으로 처리하고 있다)
+		bool timeWentBack = (now < LastTickTime - 1e-6);
+		bool episodeReset = !HasLastLocation || my.distance(LastKnownLocation) > 3000.0
+			|| timeWentBack;
 		LastKnownLocation = my;
 		HasLastLocation = true;
 		if (episodeReset)
 		{
 			StuckStreak = 0;
 			LastRelatchLosMe = -1.0;
+			NextRelatchTime = -1e9;   // 직전 라운드 타임스탬프가 미래로 보이는 것 방지
+			HasLatch = false;         // 직전 라운드 래치 방향 폐기
 		}
 
 		// 이 노드가 최근에 계속 틱되고 있었는지(연속 DBFM 유지 중인지) 확인. 갭이 크면
