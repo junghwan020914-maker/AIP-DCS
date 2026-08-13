@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 #include <iostream>
@@ -52,6 +52,10 @@ private:
 	// 주최측 reset()이 no-op이라 BT 인스턴스가 라운드/에피소드 경계에서 재생성되지 않는다.
 	Vector3 LastBTLocation;
 	bool HasLastBTLocation = false;
+	// 08-10: 라운드 리셋 3번째 신호 — 표적과의 거리 점프.
+	// 내가 직전 종료지점 근처에 리스폰해도 상대가 멀리 스폰하면 이쪽이 잡는다.
+	float LastBTDistance = 0.0f;
+	bool HasLastBTDistance = false;
 
 	// 08-08 트리 복잡도 가설 검증용. "분기가 많아 기동 전환이 잦으면 VP가 튀어 제어기
 	// 추종이 깨진다"를 재려면 분기 개수가 아니라 **VP 방향의 불연속**을 직접 봐야 한다.

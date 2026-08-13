@@ -58,10 +58,11 @@ def main():
     ap.add_argument("--ownship", default="AIP_DCS.dll")
     ap.add_argument("--target", required=True)
     ap.add_argument("--num-seeds", type=int, default=30)
+    ap.add_argument("--seed-offset", type=int, default=0)   # 08-10 홀드아웃 검증용
     args = ap.parse_args()
 
     rows = []
-    for seed in range(args.num_seeds):
+    for seed in range(args.seed_offset, args.seed_offset + args.num_seeds):
         rng = np.random.default_rng(seed)
         own, tgt = make_state(rng)
         env = DogFightWrapper(
@@ -134,7 +135,8 @@ def main():
             corot=(corot / neu_band * 100) if neu_band else 0.0,
             dv=d_sum / n, dalt=e_sum / n))
         r = rows[-1]
-        mark = "무득점" if r["zero"] else "  득점"
+        res = "패배" if r["th"] > r["my"] else ("승리" if r["my"] > r["th"] else "무승부")
+        mark = ("🔴패배" if res == "패배" else ("무득점" if r["zero"] else "  득점"))
         print(f"  seed {seed:>2} {mark} 내{r['my']:.3f} | 국면% 공{r['off']:4.1f} "
               f"수{r['dfn']:4.1f} 두{r['head']:4.1f} 중{r['neu']:4.1f} | "
               f"공세밴드 {r['offb']:5.1f}s(최장{r['best_run']:4.1f}s) ATA최소{r['oba_min']:5.1f} "

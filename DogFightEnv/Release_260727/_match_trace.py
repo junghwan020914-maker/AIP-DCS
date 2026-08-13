@@ -65,6 +65,7 @@ def main():
     terminated = truncated = False
     step = 0
     my_hp = 0.0
+    th_hp = 0.0
     while not (terminated or truncated):
         _, _, terminated, truncated, _ = env.step(np.zeros(4, dtype=np.float32))
         step += 1
@@ -73,6 +74,8 @@ def main():
         d = float(g._get_distance(o, t))
         ma = abs(float(g._get_antenna_train_angle(o, t, False)))
         my_hp += score_rate(d, ma, t_s)[0] * DT
+        ta_all = abs(float(g._get_antenna_train_angle(t, o, False)))
+        th_hp += score_rate(d, ta_all, t_s)[0] * DT
         if step % stride:
             continue
         ta = abs(float(g._get_antenna_train_angle(t, o, False)))
@@ -81,7 +84,8 @@ def main():
               f"{ta_h:7.0f} {t[6]:6.1f} {t[4]:6.1f} | {ma:5.1f} {ta:5.1f} | "
               f"{ma_h-ta_h:+6.0f} {o[6]-t[6]:+5.1f} | {my_hp:.4f}", flush=True)
     env.close()
-    print(f"[TR] 종료 t={step*DT:.1f}s  내득점={my_hp:.4f}", flush=True)
+    print(f"[TR] 종료 t={step*DT:.1f}s  내득점={my_hp:.4f} 상대득점={th_hp:.4f} "
+          f"-> {'패배' if th_hp > my_hp else '승리' if my_hp > th_hp else '무승부'}", flush=True)
 
 
 if __name__ == "__main__":

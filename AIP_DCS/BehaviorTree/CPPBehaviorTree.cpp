@@ -5,6 +5,8 @@
 
 #include <exception>
 #include <cstdio>
+#include <cmath>
+// #define RESET_DBG_TRACE
 
 // #define MINE_DBG_TRACE	// uncomment for one-off [MINE_DBG] per-tick trace
 
@@ -359,15 +361,35 @@ Vector3 UCPPBehaviorTree::GetVP()
 	//  (2) 상한 클램프: 라운드는 최대 200초다. 혹시 (1)이 리스폰을 놓쳐도(새 스폰이 직전
 	//      종료지점 근처인 희귀 케이스) 210초를 넘으면 무조건 새 라운드로 보고 되돌린다.
 	// (MyLocation_Cartesian은 이 함수 호출 전에 이미 갱신됨)
+	//  (3) 08-10 추가 — **표적과의 거리 점프.** (1)(2)만으로는 구멍이 남는다:
+	//      라운드가 조기 종료되고(격추 시 100초대에 끝나는 판이 실제로 있다) 새 스폰이
+	//      직전 종료지점 300m 안이면 (1)도 (2)도 발동하지 않는다. 그러면 다음 라운드가
+	//      RunningTime=112 같은 값으로 시작해 **개시 즉시 Phase2가 활성**된다(t>=100s).
+	//      한 틱 최대 폐쇄는 약 500m/s * 0.0167s = 8.3m이므로 300m 점프는 물리적으로
+	//      불가능하다. 내 위치가 안 변해도 **상대가 리스폰하면 이 신호가 잡는다.**
+	//      라운드 중에는 원리상 발동할 수 없어 단일 라운드 동작은 불변이다.
 	{
 		const Vector3 myNow = BB->MyLocation_Cartesian;
+		const float distNow = BB->Distance;
 		const bool respawned = HasLastBTLocation && myNow.distance(LastBTLocation) > 300.0;
-		if (respawned || BB->RunningTime > 210.0)
+		const bool distJumped = HasLastBTDistance
+			&& std::fabs(distNow - LastBTDistance) > 300.0f;
+		if (respawned || distJumped || BB->RunningTime > 210.0)
 		{
+#ifdef RESET_DBG_TRACE
+			std::fprintf(stdout, "[RESET] t=%.2f pos=%d dist=%d clamp=%d  d=%.1f->%.1f\n",
+				BB->RunningTime, (int)respawned, (int)distJumped,
+				(int)(BB->RunningTime > 210.0), LastBTDistance, distNow);
+			std::fflush(stdout);
+#endif
 			BB->RunningTime = 0.0;
 		}
 		LastBTLocation = myNow;
 		HasLastBTLocation = true;
+		// 유효한 거리를 본 뒤에만 무장한다. 첫 틱에는 BB->Distance가 아직 0이라
+		// 그대로 저장하면 다음 틱에 0->914 점프로 오발동한다(계측으로 확인).
+		LastBTDistance = distNow;
+		if (distNow > 1.0f) HasLastBTDistance = true;
 	}
 
 	BB->RunningTime += BB->DeltaSecond;	//시뮬레이선 타임에 따른 델타 타임 설정
