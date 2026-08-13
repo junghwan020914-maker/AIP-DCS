@@ -1,4 +1,4 @@
-//내 시야에 대한 적기 위치와 적기 시야에 따른 내 위치를 통하여 각각의 시야안에 상대방이 존재하는지 업데이트
+﻿//내 시야에 대한 적기 위치와 적기 시야에 따른 내 위치를 통하여 각각의 시야안에 상대방이 존재하는지 업데이트
 
 #include "CheckSight.h"
 
@@ -68,7 +68,14 @@ namespace Action
 		}
 		TV = TV / Distance;
 
-		float Los_Radian = acos(ForwardVector.dot(TV));
+		// 🔴 08-10: acos 인자를 [-1,1]로 클램프한다. 내적하는 두 벡터는 쿼터니언에서
+		// 만들어져 크기가 정확히 1이 아니라(1 +- 1e-7), **거의 평행할 때** 비율이 1을
+		// 미세하게 넘어 acos가 NaN을 낸다. 참값은 항상 [-1,1]이므로 클램프가 정확한 수정이다.
+		// 하필 **조준이 완벽할 때** 발동하고, 결과 NaN은 에러 없이 조용히 퍼진다.
+		double dotFT = ForwardVector.dot(TV);
+		if (dotFT >  1.0) dotFT =  1.0;
+		if (dotFT < -1.0) dotFT = -1.0;
+		float Los_Radian = (float)acos(dotFT);
 		float Los_Degree = Los_Radian * 57.2958;
 
 		(*BB)->Los_Degree = Los_Degree;
@@ -114,7 +121,10 @@ namespace Action
 		}
 		TV2 = TV2 / Distance2;
 
-		float Los_Radian2 = acos(ForwardVector2.dot(TV2));
+		double dotFT2 = ForwardVector2.dot(TV2);
+		if (dotFT2 >  1.0) dotFT2 =  1.0;
+		if (dotFT2 < -1.0) dotFT2 = -1.0;
+		float Los_Radian2 = (float)acos(dotFT2);
 		float Los_Degree2 = Los_Radian2 * 57.2958;
 
 		(*BB)->Los_Degree_Target = Los_Degree2;

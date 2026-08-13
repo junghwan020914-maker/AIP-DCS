@@ -130,9 +130,22 @@ StickValue StickController::GetStick(Vector3 MyLocation_FNED, Vector3 MyRotation
 
 	// 롤커멘드 생성 부분
 
-	float UpVector2Proj_TV_Angle = std::acos(UpVector.dot(Proj_TV / Proj_TV.length()));
+	// 🔴 08-10: acos 인자 클램프. 쿼터니언 유래 벡터라 크기가 정확히 1이 아니어서
+	// 거의 평행할 때 비율이 1을 넘어 NaN이 된다. **조준이 완벽할 때** 발동한다.
+	// 게다가 아래 `_isnan(LOS)` 검사는 RollCMD 계산 **뒤에** 있어 이미 오염된 뒤다.
+	double projLen = Proj_TV.length();
+	if (projLen < 1e-9) projLen = 1e-9;
+	double dotUP = UpVector.dot(Proj_TV / projLen);
+	if (dotUP >  1.0) dotUP =  1.0;
+	if (dotUP < -1.0) dotUP = -1.0;
+	float UpVector2Proj_TV_Angle = (float)std::acos(dotUP);
 	float UTAngle;
-	float LOS = std::acos(ForwardVector.dot((TargetLocation - Mylocation)) / (TargetLocation - Mylocation).length()) * RADTODEG;
+	double tgtLen = (TargetLocation - Mylocation).length();
+	if (tgtLen < 1e-9) tgtLen = 1e-9;
+	double dotFL = ForwardVector.dot(TargetLocation - Mylocation) / tgtLen;
+	if (dotFL >  1.0) dotFL =  1.0;
+	if (dotFL < -1.0) dotFL = -1.0;
+	float LOS = (float)(std::acos(dotFL) * RADTODEG);
 
 	if (_isnan(UpVector2Proj_TV_Angle) != 0)
 	{
@@ -399,10 +412,18 @@ StickValue StickController::GetStick(Vector3 MyLocation_FNED, Vector3 MyRotation
 	std::fflush(stdout);
 #endif
 
+	// 🔴 08-10 최종 방어선. `clamp`는 **NaN을 걸러내지 못한다**:
+	//     if (input <= down) ... else if (input >= up) ... else return input;
+	//   NaN은 두 비교가 모두 거짓이라 **그대로 반환된다.**
+	// acos 인자를 클램프해 발생원은 막았지만, 어떤 경로로든 NaN이 새면 조종 명령이
+	// 통째로 NaN인 채 서버로 나간다. 여기서 0으로 치환한다(= 스틱 중립).
 	StickValue Result;
 	Result.RollCMD = clamp(RollCMD, -1, 1);
 	Result.PitchCMD = clamp(PitchCMD, -1, 1);
 	Result.RudderCMD = clamp(RudderCMD, -1, 1);
+	if (_isnan(Result.RollCMD)   != 0) Result.RollCMD = 0.0f;
+	if (_isnan(Result.PitchCMD)  != 0) Result.PitchCMD = 0.0f;
+	if (_isnan(Result.RudderCMD) != 0) Result.RudderCMD = 0.0f;
 	//Result.RudderCMD = RudderCMD;
 	return Result;
 }

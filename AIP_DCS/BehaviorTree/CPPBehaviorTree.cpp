@@ -455,6 +455,23 @@ Vector3 UCPPBehaviorTree::GetVP()
 		// 재던지지 않는다 — 안전값으로 계속 비행하는 편이 항상 낫다.
 	}
 
+	// 🔴 08-10 최종 위생: Throttle/VP가 NaN이나 범위 밖이면 서버에 그대로 나간다.
+	// 트리의 어느 노드든 계산이 틀어지면 여기로 새므로 마지막에 한 번 걸러낸다.
+	if (!(Throttle >= 0.0f) || !(Throttle <= 1.0f))	// NaN이면 두 비교 모두 거짓
+	{
+		Throttle = (Throttle > 1.0f) ? 1.0f : ((Throttle < 0.0f) ? 0.0f : 0.9f);
+	}
+	if (std::isnan(VP.X) || std::isnan(VP.Y) || std::isnan(VP.Z))
+	{
+		Vector3 my = BB->MyLocation_Cartesian;
+		Vector3 f = BB->MyForwardVector;
+		Vector3 fh(f.X, f.Y, 0.0);
+		if (fh.length() < 1e-3) fh = Vector3(1.0, 0.0, 0.0);
+		fh.normalize();
+		VP = my + fh * 2000.0 + Vector3(0.0, 0.0, 200.0);	// 안전 기본값(직진+완만상승)
+	}
+
+
 	
 
 	
