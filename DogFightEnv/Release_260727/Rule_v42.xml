@@ -1,0 +1,53 @@
+<root main_tree_to_execute = "MainTree">
+
+  <BehaviorTree ID="MainTree">
+    <Sequence>
+
+      <!-- 인지 -->
+      <Sequence>
+        <SelectTarget name="SelectTarget" BB="{BB}"/>
+        <DirectionVectorUpdate name="DirectionVectorUpdate" BB="{BB}"/>
+        <DistanceUpdate name="DistanceUpdateService" BB="{BB}"/>
+        <AngleOffUpdate name="AngleOffUpdate" BB="{BB}"/>
+        <AspectAngleUpdate name="AspectAngleUpdate" BB="{BB}"/>
+
+        <ReactiveFallback>
+
+          <!-- 0. 추락 방지.
+               v18: MinAlt 3000 -> 1800.  v40: 1800 -> 1000.
+               [근거] VP Z하한이 3500이던 v17까지는 고도가 3358m 아래로 내려갈 일이
+               없어 이 분기가 200초간 0회 발동하는 죽은 코드였다. 하한을 1500m로
+               내리면서, 그보다 위인 1800m에서 발동하도록 옮겨 실제 안전망으로 살린다.
+               (실제 종료 하한은 min_altitude=300m이므로 1800m는 충분한 여유) -->
+          <Sequence>
+            <DECO_AltitudeCheck name="AltCheck" MinAlt="700" BB="{BB}"/>
+            <Task_ClimbOut name="ClimbOut" BB="{BB}"/>
+          </Sequence>
+
+          <!-- v41 (2026-08-11): 생존 분기(브레이크 이탈)를 제거했다.
+               [근거] 240판 측정에서 그 분기는 세 기하·12상대 어디서도 도움이 안 됐다.
+                 - 개전 2초에 상대 ATA가 25도를 깨면 게이트가 열려 우리가 등을 돌린다.
+                   그 뒤로 회복하지 못한다. 같은 t=0 기하에서 게이트가 안 열린 판은
+                   HP 1.000으로 이기고, 100% 열린 판은 37초에 격추됐다.
+                 - 제거 시: 대회조건 90판 71/2/17 -> 77/5/8, legacy 150판 102/42/6 -> 110/37/3.
+                   퇴행한 셀 0. 우리 추락 0건.
+                 - Syllabus S3(방어 BFM) vs v7: WEAK(생존만) -> PASS(반전 성공), 피격 21.7 -> 4.7.
+               [원리] 근거리 6시 위협의 정답은 이탈이 아니라 선회진입이다(BFM 정석).
+                 그 노드는 MyRight 방향 브레이크 = 상대에게 등을 내주는 기동이었다.
+                 방어를 없앤 게 아니라, 더 나쁜 방어 기동을 더 나은 것으로 바꾼 것이다.
+               [기각한 대안] 게이트 축소(1100->400)는 4승 0무 11패로 기준선과 같았다.
+                 우리는 최근접 중앙값 216m까지 파고들어 좁힌 게이트도 결국 열린다.
+                 게이트 축소는 해로운 행동을 없애는 게 아니라 더 나쁜 순간으로 미룬다.
+               상세: experiments/match_conditions/RESULTS_defense_2026-08-11.md -->
+
+          <!-- 2. 추격: v14 dV 속도매칭 + v17 궤도추종 + v18 고도제약 해제 -->
+          <Task_LeadPredict name="LeadPredict" BB="{BB}"/>
+
+        </ReactiveFallback>
+
+      </Sequence>
+
+    </Sequence>
+  </BehaviorTree>
+
+</root>

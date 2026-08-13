@@ -153,7 +153,16 @@ StickValue UCPPBehaviorTree::Step(PlaneInfo MyInfo, int NumofOtherPlane, PlaneIn
 	Myinfo.Resv2 = MyInfo.Resv2;		//OperationMode
 
 	//다른 비행기들 위치 좌표계 변환
-	PlaneInfo others[4];
+	// 🔴 08-10: `NumofOtherPlane`은 **서버가 주는 값인데 경계 검사가 없었다.**
+	// 4를 넘으면 아래 `others[4]`에 스택 버퍼 오버플로우가 난다 — 크래시나 메모리 손상이고
+	// 우리가 통제할 수 없는 입력에서 온다. 1v1이면 1이겠지만 방어 비용이 한 줄이다.
+	// 음수도 막는다(루프는 안 돌지만 의도를 명시).
+	const int kMaxOthers = 4;
+	if (NumofOtherPlane < 0) NumofOtherPlane = 0;
+	if (NumofOtherPlane > kMaxOthers) NumofOtherPlane = kMaxOthers;
+	if (OthersInfo == nullptr) NumofOtherPlane = 0;		// 널 포인터 방어
+
+	PlaneInfo others[kMaxOthers];
 	for (int i = 0; i < NumofOtherPlane; i++)
 	{
 		Vector3 Enemylocation_Cartesian = OthersInfo[i].Location;

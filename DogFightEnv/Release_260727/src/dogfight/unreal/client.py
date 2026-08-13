@@ -314,6 +314,9 @@ class UnrealAIPilotUDPClient:
             packet = unpack_plane_info(buffer)
             self._record_packet("RX", message_type, packet, len(buffer), remote_endpoint)
             self._handle_plane_info(packet)
+        # 2026-08-13 실측: 여기 `else`를 달아 미처리 타입을 전부 덤프해봤으나 **0건**이었다.
+        # 즉 서버는 MT_Damage(타입 3)를 **보내지 않는다**. 뷰어 화면의 HP는 순전히 뷰어
+        # 내부 계산이고, 클라이언트는 자기 HP도 상대 HP도 알 수 없다. 진단 코드는 제거했다.
 
     def _handle_set_plane_id(self, packet: SetPlaneID) -> None:
         with self._lock:

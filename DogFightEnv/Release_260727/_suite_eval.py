@@ -99,12 +99,36 @@ PRESETS = {
 }
 
 
+# 🔴🔴 08-13 실서버 실측 — **로컬 채점은 실전보다 약 60배 관대한 판돈을 쓴다.**
+# BattleViewer 실전 2판을 궤적까지 받아 대조한 결과:
+#   · 우리 BT는 경기 시계 기준 정확히 60Hz로 틱한다(7391틱=123.2초→"77초 남음" 화면과 일치,
+#     11807틱=196.8초→200초 완주와 일치). 즉 로컬 1스텝 = 서버 1프레임으로 1:1 대응한다.
+#   · v42 판: 우리 공식 0.0000 → 화면 100/100. 일치.
+#   · v32 판: 우리 공식으로 **경기시계 127~129초에 단 한 번의 조준 통과(합계 1.3)** →
+#     화면은 그 시점(남은 77초)에 **상대 HP 0**. 즉 1.3짜리 피해가 격추였다.
+# 규정 공식은 `d_wez * delta_t`(초당)인데, 서버는 **프레임당** 누산하는 것으로 보인다.
+# 콘을 30도까지 넓혀도 20배가 모자라므로 넓은 콘으로는 설명되지 않는다.
+#
+# ➡️ 그래서 같은 시뮬레이션을 **두 가지로 동시에 채점**한다. 비용은 0이고, 지금까지의
+#    채택/기각 판정이 실전 모델에서 뒤집히는지 바로 보인다.
+#      rules  : 기존 그대로(d_wez × DT, 200초 만료 시 HP 비교)  -- 로컬 히스토리 호환용
+#      server : d_wez를 **프레임당** 누산, HP 100 소진 시 즉시 격추
+#    ⚠️ 배율 상수는 아직 ±2배 불확실하다(v32 판 표본이 10Hz CSV라 짧은 통과가 뭉갠다).
+#      그러니 server 쪽 **절대 수치가 아니라 승패 구조와 순위 변화**를 볼 것.
+SERVER_HP = 100.0
+
+
 def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
     my_hp = th_hp = 0.0
     my_phase = {1: 0.0, 2: 0.0, 3: 0.0}
     cone1 = 0
     wins = losses = 0
     crash = 0
+    # 실서버 모델 집계
+    s_wins = s_losses = 0
+    s_kills = s_deaths = 0          # 200초 안에 HP를 다 깎은/깎인 판
+    s_kill_times = []               # 우리가 격추한 시각(초)
+    s_death_times = []
     # 08-10: 상대 추락도 센다. prev 상대 4승14패를 "한쪽만 안전장치를 건 비대칭"으로
     # 해석했으나 우리 추락만 세고 있어 **검증되지 않은 상태**였다. 규정상 추락은 즉시
     # 패배이므로 상대가 자멸하는 판은 실제로는 우리 승리다.
@@ -137,6 +161,8 @@ def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
         my_min_alt = 1e9
         tgt_min_alt = 1e9
         seed_my = seed_th = 0.0
+        srv_my = srv_th = 0.0            # 프레임당 누산 (실서버 모델)
+        srv_kill_t = srv_death_t = None  # 먼저 HP를 소진시킨 시각
         while not (terminated or truncated):
             _, _, terminated, truncated, info = env.step(np.zeros(4, dtype=np.float32))
             step += 1
@@ -159,6 +185,14 @@ def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
             r2, _ = score_rate(d, ta, t_s)
             th_hp += r2 * DT
             seed_th += r2 * DT
+
+            # 실서버 모델: 같은 d_wez를 DT 없이 프레임당 누산 (로컬 1스텝 = 서버 1프레임)
+            srv_my += r
+            srv_th += r2
+            if srv_kill_t is None and srv_my >= SERVER_HP:
+                srv_kill_t = t_s
+            if srv_death_t is None and srv_th >= SERVER_HP:
+                srv_death_t = t_s
 
         secs_total += step * DT
         margins.append(seed_my - seed_th)
@@ -185,6 +219,33 @@ def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
             wins += 1
         elif oh < thh:
             losses += 1
+
+        # --- 실서버 모델 판정 ---
+        # rules 모델과 다른 점은 **격추가 판을 끝낸다**는 것 하나다(부호 판정은 60배를
+        # 곱해도 같으므로 동일). 그래서 "먼저 100을 채운 쪽"이 갈리는 판만 결과가 바뀐다.
+        # ⚠️ 격추 이후 궤적은 실제로는 존재하지 않는다(시뮬은 계속 돈다). 승패 판정에만
+        #    쓰고, 격추 후 구간의 피해량은 무시한다.
+        if my_crashed and not tgt_crashed:
+            s_losses += 1
+        elif tgt_crashed and not my_crashed:
+            s_wins += 1
+        elif my_crashed and tgt_crashed:
+            pass
+        elif srv_kill_t is not None or srv_death_t is not None:
+            k = srv_kill_t if srv_kill_t is not None else 1e18
+            dth = srv_death_t if srv_death_t is not None else 1e18
+            if k < dth:
+                s_wins += 1
+                s_kills += 1
+                s_kill_times.append(k)
+            elif dth < k:
+                s_losses += 1
+                s_deaths += 1
+                s_death_times.append(dth)
+        elif srv_th < srv_my:
+            s_wins += 1
+        elif srv_my < srv_th:
+            s_losses += 1
         env.close()
 
     tot = max(my_hp, 1e-9)
@@ -194,7 +255,11 @@ def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
                 cone1=cone1 / 60 / n, crash=crash, tgt_crash=tgt_crash,
                 secs=secs_total / n,
                 p1=100 * my_phase[1] / tot, p2=100 * my_phase[2] / tot,
-                p3=100 * my_phase[3] / tot)
+                p3=100 * my_phase[3] / tot,
+                s_w=s_wins, s_l=s_losses, s_d=n - s_wins - s_losses,
+                s_kills=s_kills, s_deaths=s_deaths,
+                s_kt=(float(np.mean(s_kill_times)) if s_kill_times else 0.0),
+                s_dt=(float(np.mean(s_death_times)) if s_death_times else 0.0))
 
 
 def main():
@@ -249,6 +314,25 @@ def main():
         allpts = sum(r["w"] + 0.5 * r["draws"] for r in rows)
         alln = sum(r["n"] for r in rows)
         print(f"  → 총 승점 {allpts:.1f} / {alln}  ({100*allpts/alln:.1f}%)")
+
+        print()
+        print("  [실서버 모델] 08-13 실전 대조 — 데미지를 **프레임당** 누산, HP 100 소진 시 격추.")
+        print("  rules와 다른 점은 격추가 판을 끝낸다는 것 하나다. 약 1.5~3초짜리 조준 한 번이")
+        print("  승패를 결정하므로, 로컬 rules 승점은 **방어의 중요도를 과소평가**한다.")
+        print(f"  {'상대':<16} {'승':>3} {'패':>3} {'무':>3} | {'격추':>4} {'피격추':>6} | "
+              f"{'격추시각':>8} {'피격시각':>8} | {'승점':>7}")
+        for r in rows:
+            spts = r["s_w"] + 0.5 * r["s_d"]
+            kt = f"{r['s_kt']:.0f}s" if r["s_kills"] else "-"
+            dt_ = f"{r['s_dt']:.0f}s" if r["s_deaths"] else "-"
+            print(f"  {r['target']:<16} {r['s_w']:>3} {r['s_l']:>3} {r['s_d']:>3} | "
+                  f"{r['s_kills']:>4} {r['s_deaths']:>6} | {kt:>8} {dt_:>8} | {spts:>7.1f}")
+        spts_all = sum(r["s_w"] + 0.5 * r["s_d"] for r in rows)
+        print(f"  → 실서버 승점 {spts_all:.1f} / {alln}  ({100*spts_all/alln:.1f}%)"
+              f"   [rules {allpts:.1f} 대비 {spts_all-allpts:+.1f}]")
+        flips = [r["target"] for r in rows
+                 if (r["w"], r["l"]) != (r["s_w"], r["s_l"])]
+        print(f"  판정이 갈린 상대: {', '.join(flips) if flips else '없음'}")
     print("=" * 96)
 
 
