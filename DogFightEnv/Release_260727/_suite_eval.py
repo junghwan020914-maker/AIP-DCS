@@ -99,23 +99,30 @@ PRESETS = {
 }
 
 
-# 🔴🔴 08-13 실서버 실측 — **로컬 채점은 실전보다 약 60배 관대한 판돈을 쓴다.**
-# BattleViewer 실전 2판을 궤적까지 받아 대조한 결과:
-#   · 우리 BT는 경기 시계 기준 정확히 60Hz로 틱한다(7391틱=123.2초→"77초 남음" 화면과 일치,
-#     11807틱=196.8초→200초 완주와 일치). 즉 로컬 1스텝 = 서버 1프레임으로 1:1 대응한다.
-#   · v42 판: 우리 공식 0.0000 → 화면 100/100. 일치.
-#   · v32 판: 우리 공식으로 **경기시계 127~129초에 단 한 번의 조준 통과(합계 1.3)** →
-#     화면은 그 시점(남은 77초)에 **상대 HP 0**. 즉 1.3짜리 피해가 격추였다.
-# 규정 공식은 `d_wez * delta_t`(초당)인데, 서버는 **프레임당** 누산하는 것으로 보인다.
-# 콘을 30도까지 넓혀도 20배가 모자라므로 넓은 콘으로는 설명되지 않는다.
+# 🔴🔴 08-13 실서버 실측 — **뷰어는 Phase 2/3을 주지 않는다. Phase 1 전용이다.**
 #
-# ➡️ 그래서 같은 시뮬레이션을 **두 가지로 동시에 채점**한다. 비용은 0이고, 지금까지의
-#    채택/기각 판정이 실전 모델에서 뒤집히는지 바로 보인다.
-#      rules  : 기존 그대로(d_wez × DT, 200초 만료 시 HP 비교)  -- 로컬 히스토리 호환용
-#      server : d_wez를 **프레임당** 누산, HP 100 소진 시 즉시 격추
-#    ⚠️ 배율 상수는 아직 ±2배 불확실하다(v32 판 표본이 10Hz CSV라 짧은 통과가 뭉갠다).
-#      그러니 server 쪽 **절대 수치가 아니라 승패 구조와 순위 변화**를 볼 것.
-SERVER_HP = 100.0
+# 앞서 이 자리에 "서버가 데미지를 프레임당 누산한다(약 60배)"고 적었다. **그건 틀렸다.**
+# 원인은 단위 혼동이었다 — 로컬은 체력을 0~1로 정규화해 쓰고(_init_health=1) 실서버는
+# 같은 값을 HP 0~100으로 표시한다. 즉 **로컬 피해량 1.0 = HP 100 = 격추**이고 배율은 없다.
+#
+# 실서버 4판을 Phase 1(ATA<1도, 152~914m)만으로 재계산하니 전부 맞는다:
+#     판     Phase1 피해(경기시계)  조준시간   실제 결과
+#     arcE        1.0231           4.34s     격추
+#     v32         0.8020           1.75s     격추
+#     v29         0.0000           0.00s     100/100 무승부
+#     v42         0.0000           0.00s     100/100 무승부
+# v29 판이 결정적이다 — 우리 ATA가 한 번도 1도 안에 못 들어갔고(최소 1.5도) Phase 1이
+# 정확히 0인데, Phase 2/3을 포함한 우리 채점기는 0.2667을 계산했다. **화면은 100/100이었다.**
+#
+# ⚠️ 규정 Q&A/PPT에는 Phase 2/3이 분명히 있다. 우리가 쓰는 뷰어(V1.1_VeryLow, 08-06 배포)가
+#    구현하지 않았을 뿐이고, **대회 본서버가 어느 쪽인지는 모른다.** 그래서 버리지 않고
+#    **둘 다 계산해 나란히 보여준다.** 갈리는 상대가 나오면 그게 곧 위험 신호다.
+#
+# 이게 왜 중요한가 — 우리 득점의 상당 부분이 Phase 2/3에서 나온다:
+#     v29  P1 59.2% / P2 31.3% / P3 9.4%   <- 40%가 뷰어에선 0점
+#     v42  P1 81.6% / P2 10.7% / P3 7.7%
+# 그 위에서 하루 종일 ±1~2점으로 채택/기각을 판정했다.
+
 
 
 def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
@@ -161,8 +168,8 @@ def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
         my_min_alt = 1e9
         tgt_min_alt = 1e9
         seed_my = seed_th = 0.0
-        srv_my = srv_th = 0.0            # 프레임당 누산 (실서버 모델)
-        srv_kill_t = srv_death_t = None  # 먼저 HP를 소진시킨 시각
+        srv_my = srv_th = 0.0            # Phase1만 누산 (뷰어 실측 모델). 1.0 = HP 100 = 격추
+        srv_kill_t = srv_death_t = None  # 먼저 체력을 소진시킨 시각
         while not (terminated or truncated):
             _, _, terminated, truncated, info = env.step(np.zeros(4, dtype=np.float32))
             step += 1
@@ -182,16 +189,19 @@ def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
             seed_my += r * DT
             if ph:
                 my_phase[ph] += r * DT
-            r2, _ = score_rate(d, ta, t_s)
+            r2, ph2 = score_rate(d, ta, t_s)
             th_hp += r2 * DT
             seed_th += r2 * DT
 
-            # 실서버 모델: 같은 d_wez를 DT 없이 프레임당 누산 (로컬 1스텝 = 서버 1프레임)
-            srv_my += r
-            srv_th += r2
-            if srv_kill_t is None and srv_my >= SERVER_HP:
+            # 뷰어 실측 모델: **Phase 1만** 인정하고 정규화 체력 1.0 소진 시 격추.
+            # 배율은 없다 — 로컬 1.0 = 실서버 HP 100이다(위 헤더 참고).
+            if ph == 1:
+                srv_my += r * DT
+            if ph2 == 1:
+                srv_th += r2 * DT
+            if srv_kill_t is None and srv_my >= 1.0:
                 srv_kill_t = t_s
-            if srv_death_t is None and srv_th >= SERVER_HP:
+            if srv_death_t is None and srv_th >= 1.0:
                 srv_death_t = t_s
 
         secs_total += step * DT
@@ -316,9 +326,9 @@ def main():
         print(f"  → 총 승점 {allpts:.1f} / {alln}  ({100*allpts/alln:.1f}%)")
 
         print()
-        print("  [실서버 모델] 08-13 실전 대조 — 데미지를 **프레임당** 누산, HP 100 소진 시 격추.")
-        print("  rules와 다른 점은 격추가 판을 끝낸다는 것 하나다. 약 1.5~3초짜리 조준 한 번이")
-        print("  승패를 결정하므로, 로컬 rules 승점은 **방어의 중요도를 과소평가**한다.")
+        print("  [뷰어 실측 모델] 08-13 실전 4판 대조 — **Phase 1만** 인정(ATA<1도, 152~914m).")
+        print("  Phase 2/3은 규정 Q&A엔 있으나 이 뷰어(V1.1)는 주지 않는다. 대회 본서버는 미확인.")
+        print("  로컬 피해량 1.0 = 실서버 HP 100 = 격추. 배율은 없다(단위 차이였다).")
         print(f"  {'상대':<16} {'승':>3} {'패':>3} {'무':>3} | {'격추':>4} {'피격추':>6} | "
               f"{'격추시각':>8} {'피격시각':>8} | {'승점':>7}")
         for r in rows:
