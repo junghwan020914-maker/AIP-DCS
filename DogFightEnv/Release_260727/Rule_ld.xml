@@ -15,16 +15,6 @@
   [주의] Sequence/Fallback 에 name= 금지(파서 버그). 거리 단위 m 가정.
   ============================================================================
 -->
-<!-- 🔬 08-14 실험: 방어 중 전추력. BreakTurn/Jinking에 Throttle="1.0" 부여.
-     [계기] `_death_probe.py` prev 20시드 — 우리가 맞는 순간 중앙값이
-       내ATA 171.4도(등을 보임) / 거리 504m / 속도차 -12.5m/s / 스로틀 **0.83**.
-     [기전] 방어 노드가 스로틀을 안 정하면 `CPPBehaviorTree.cpp:421`의 스테이션키핑
-       폴백이 걸린다: thr = 0.5 + (적속도-내속도)/40 + (거리-500)/1500.
-       실측값 대입 시 0.815로 **정확히 일치**. 이 폴백은 "표적 옆 500m 유지" 용도라
-       쫓기는 상황을 상정한 게 아니다(템플릿 원본).
-     [예상] 등을 보인 채 상대보다 느린 상태가 사라지면 피격 이벤트가 줄어든다.
-     ⚠️ 어제 LastDitch(더 감속)가 홀드아웃까지 -0.5로 기각됐다. 이건 정반대 방향이고
-        한 번도 시험한 적이 없다. -->
 <root main_tree_to_execute="MainTree">
 
   <BehaviorTree ID="MainTree">
@@ -245,7 +235,7 @@
                    둘 다 악화. 근접 저크(jink)는 예측불가성 자체가 방어력이라 조준방향
                    섞기가 오히려 역효과로 추정. AimBlend=0(사실상 미사용)으로 원복,
                    포트/코드는 남겨둠(추후 다른 값으로 재시도 가능). -->
-              <Jinking Throttle="1.0" BB="{BB}" Freq="3.0"/>
+              <Jinking BB="{BB}" Freq="3.0"/>
             </Sequence>
             <!-- 08-05 실험: 순수회피(AimBlend=0)는 my_ata가 절대 안 줄어듦을 반복 확인(v29/v32
                  트레이스) — 회피 방향에 목표방향을 20% 섞어 "회피하되 서서히 조준각도
@@ -264,7 +254,7 @@
                  기준)를 보고, 계속 정체면 그 다음 래치부터 블렌드를 점점 올림(최대 0.5).
                  StuckCheck/RelatchSeconds와 달리 "항상 더 공격적으로"가 아니라 "정체가
                  확인된 경우에만" 강도를 올리는 컨텍스트 인지형 접근. -->
-            <BreakTurn Throttle="1.0" BB="{BB}" AimBlend="0.2" EscalationStep="0.05" MaxAimBlend="0.5" StuckImproveDeg="5.0"/>
+            <BreakTurn BB="{BB}" AimBlend="0.2" EscalationStep="0.05" MaxAimBlend="0.5" StuckImproveDeg="5.0"/>
           </Fallback>
         </Sequence>
 
