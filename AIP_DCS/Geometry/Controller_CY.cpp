@@ -1,6 +1,7 @@
 ﻿#include "Controller_CY.h"
 #include <math.h>
 #include <cstdio>
+#include <cstdlib>
 
 // #define CTRL_DBG_TRACE	// uncomment for one-off [CTRL_DBG] per-tick trace
 float clamp(float input, float RangeDown, float RangeUp)
@@ -371,7 +372,25 @@ StickValue StickController::GetStick(Vector3 MyLocation_FNED, Vector3 MyRotation
 	// 잡아줘서 '빠른 수렴 + 안정된 정착'이 동시에 성립한다 — <3도 7.94->9.86s(수렴),
 	// <1도 1.36->1.49s(정착), 피격 0.1459->0.1395(최저).
 	// **한쪽만 되돌리면 반드시 회귀한다. 짝으로 유지할 것.**
-	float Roll_Effect = clamp(std::cos(UTAngle), 0, 1);
+	// 🔴🔴 08-14 **피치 데드존 발견.** 이 clamp의 하한 0이 조준 실패의 구조적 원인이다.
+	// `_pitchauth_probe.py`(arcD 6시드, 공세+밴드 8552표본) 실측:
+	//     cos(UT) 클램프 **전** 중앙 -0.989,  음수 비율 **94.07%**
+	//     el(표적 고도)      중앙 -1.52도,   음수(기수 아래) 비율 **94.07%**
+	//     el<0 & cos<0 94.07% / el>0 & cos>=0 5.93% -> **일치율 100.00%**
+	// 표적이 기수보다 아래면 cos(UT)는 **반드시** 음수이고 여기서 0으로 잘린다.
+	// PitchCMD = ERROR_Effect * Roll_Effect * ... 이므로 그 순간 **피치 권한이 정확히 0**이다.
+	// 우리는 조준 기회의 **94%**를 그 상태로 보낸다 — 제어기는 롤로만 대응한다.
+	//
+	// 이걸로 오늘 관측이 전부 설명된다:
+	//   · 조준 오차의 90%가 고도 축   -> 고도 방향으로만 권한이 죽으니까
+	//   · 부호반전율 0.58%             -> 진동이 없는 게 아니라 **교정 동작 자체가 없어서**
+	//   · 상대 각속도와 무관(+0.084)   -> 동역학이 개입할 여지가 없어서
+	//   · 받음각 보정(AIMBIAS_K) 실패  -> 조준점을 내려도 그 점 역시 기수 아래라 권한 0
+	//   · arcD에서 30초 붙어도 7.94%   -> 붙어 있어도 권한이 없으면 못 겨눈다
+	// 왜 하필 아래냐: 기수는 속도벡터보다 받음각(중앙 8.3도)만큼 위에 있고 표적은 대체로
+	// 비행경로 근처다. 그래서 표적은 거의 항상 기수 아래에 놓인다.
+	const float rollRaw = (float)std::cos(UTAngle);	// 클램프 전 원값(부호 보존)
+	float Roll_Effect = clamp(rollRaw, 0, 1);
 
 	float Horizon_Effect;
 	if (std::abs(UTAngle * RADTODEG) <= 90)
@@ -401,7 +420,51 @@ StickValue StickController::GetStick(Vector3 MyLocation_FNED, Vector3 MyRotation
 	// 잘 동작하는 영역 안에 붙잡아두는 장치**였다. 원본 불연속 구조로 원복한다.
 	// (클램프가 75도면 제어기가 보는 LOS는 항상 75도 이하라 이 분기는 발동하지 않는다)
 	if (LOS < 90)
+	{
 		PitchCMD = ERROR_Effect * Roll_Effect * Horizon_Effect * (-1);//+Roll_Effect2;
+
+		// [데드존 보정] 표적이 기수 아래(rollRaw<0)면 위 항이 0이다. 기수를 내리려면
+		// **양(+)의 피치**가 필요한데 현재 구조는 그걸 원천 차단한다. 작은 하방 오차에서만
+		// 작은 크기로 연다 — 큰 각도에서 밀면 표적을 완전히 놓치고, 밀기(음의 G)는
+		// BFM에서 일반적으로 나쁘다.
+		// ⚠️ 지금까지 기각된 처방들은 **조준점(무엇을 겨눌지)**을 바꾼 것이었고
+		//    이건 **조준점에 도달하는 권한**을 여는 것이다. 데드존은 100% 일치로 증명됐다.
+		// 게인은 환경변수로 A/B (미설정=0=기존 동작, 같은 바이너리로 대조 가능).
+		// ❌ 08-14 **기각.** 데드존은 실재하지만 **병목이 아니었다.**
+		//   arcD 12시드 순수조준률 — 사전 등록 기준(조준률이 오르는가)에서 **전부 하락**:
+		//     K=0 **6.69%**(득점1.74s) | K=1.0 6.27%(1.90s) | K=1.5 6.48%(1.93s) | K=2.0 6.51%(1.90s)
+		//   6시드에서 보였던 K=1.0 우위(8.01%)는 12시드에서 사라졌다 — 잡음이었다.
+		//   득점시간만 +9~11% 올랐는데 원인은 조준이 아니라 **공세밴드 증가**(26.0->29~30s)다.
+		//   기수를 낮추면 오버슛하지 않고 더 오래 붙는다(AIMBIAS와 같은 경로).
+		//   그러나 **실전 성적은 정반대**다. K=1.5 코어 4상대 20시드:
+		//     v32  +0.7595(17승) -> **+0.2868(9승)**   v29 +0.7668(19승) -> **+0.3377(10승)**
+		//     총 승점 78.0 -> **69.5** (홀드아웃 67.5, arcA에서 첫 1패)
+		//   승수가 거의 반토막이다. **밀기는 각도를 잃게 만든다.**
+		// ➡️ 결론: 제어기는 **롤로 양력벡터를 놓고 당기는 정석 구조**로 설계됐고
+		//    그 설계가 작동하고 있다. 데드존은 결함이 아니라 설계다.
+		//    피치 권한이 롤에 달려 있다는 것이 확정됐으므로, 다음 계측은 **롤 응답 속도**다.
+		//    (코드는 기본 OFF로 남긴다 — 환경변수 미설정이면 기존 동작 그대로)
+		static float s_k = -1.0f;
+		static float s_gate = 10.0f;
+		static float s_cap = 0.30f;
+		if (s_k < 0.0f)
+		{
+			s_k = 0.0f;
+			char b[32]; size_t rn = 0;
+			if (getenv_s(&rn, b, sizeof(b), "PITCHDZ_K") == 0 && rn > 1) s_k = (float)atof(b);
+			if (getenv_s(&rn, b, sizeof(b), "PITCHDZ_GATE") == 0 && rn > 1) s_gate = (float)atof(b);
+			if (getenv_s(&rn, b, sizeof(b), "PITCHDZ_CAP") == 0 && rn > 1) s_cap = (float)atof(b);
+			if (!(s_k >= 0.0f) || s_k > 3.0f) s_k = 0.0f;
+			if (!(s_gate > 0.0f) || s_gate > 90.0f) s_gate = 10.0f;
+			if (!(s_cap > 0.0f) || s_cap > 1.0f) s_cap = 0.30f;
+		}
+		if (s_k > 0.0f && rollRaw < 0.0f && LOS < s_gate)
+		{
+			// -rollRaw = 표적이 아래로 벗어난 정도(0~1), LOS/6 = P항과 같은 스케일
+			float push = s_k * (-rollRaw) * (LOS / 6.0f);
+			PitchCMD += clamp(push, 0, s_cap);	// 양수 = 기수 내림
+		}
+	}
 	else
 		PitchCMD = -1;
 
