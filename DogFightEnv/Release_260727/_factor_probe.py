@@ -86,8 +86,12 @@ BAND_MIN, BAND_MAX = 152.4, 914.4
 MULT = 100.0   # 정규화 1.0 -> HP 100
 
 
+FRONT, REAR = 50.0, 130.0   # 공세 판정 임계 (`_stalemate_diag.py`와 동일)
+
+
 def run(ownship, target, n, off):
     band = hit = waste = 0
+    oband = ohit = 0            # 공세 중 밴드 / 그 안에서 조준 성공
     band_t = 0
     dw = []
     my_hp = th_hp = 0.0
@@ -118,8 +122,15 @@ def run(ownship, target, n, off):
             ma = abs(float(g._get_antenna_train_angle(o, t, False)))
             ta = abs(float(g._get_antenna_train_angle(t, o, False)))
             inb = BAND_MIN <= d <= BAND_MAX
+            # 공세 = 내가 상대 뒤에 있다. 이 조건을 걸어야 "못 겨눠서"와
+            # "겨눌 위치가 아니라서"가 갈린다(v42는 밴드 52.2s인데 공세는 0.76%뿐이었다).
+            off_now = (ma < FRONT) and (ta > REAR)
             if inb:
                 band += 1
+                if off_now:
+                    oband += 1
+                    if ma <= 1.0:
+                        ohit += 1
                 if ma <= 1.0:
                     hit += 1
                     dw.append((BAND_MAX - d) / (BAND_MAX - BAND_MIN))
@@ -135,6 +146,9 @@ def run(ownship, target, n, off):
     s = lambda c: c * DT / n
     return dict(target=target, n=n,
                 T_band=s(band), P_aim=(100.0 * hit / band if band else 0.0),
+                T_oband=s(oband),
+                P_oaim=(100.0 * ohit / oband if oband else 0.0),
+                T_ohit=s(ohit),
                 T_hit=s(hit), T_waste=s(waste),
                 dwez=(float(np.mean(dw)) if dw else 0.0),
                 my=my_hp / n, th=th_hp / n,
@@ -157,18 +171,19 @@ def main():
             continue
         r = run(args.ownship, t, args.num_seeds, args.seed_offset)
         rows.append(r)
-        print(f"  {t:<20} 밴드{r['T_band']:6.1f}s 조준률{r['P_aim']:5.2f}% "
+        print(f"  {t:<20} 밴드{r['T_band']:6.1f}s 조준률{r['P_aim']:5.2f}% | "
+              f"공세밴드{r['T_oband']:6.1f}s **순수조준률{r['P_oaim']:6.2f}%** | "
               f"득점{r['T_hit']:5.2f}s 헛조준{r['T_waste']:6.1f}s", flush=True)
 
     print("\n" + "=" * 112)
     print(f"[득점 요인 분해] {args.num_seeds}시드/상대  나={args.ownship}   "
           f"HP 환산(정규화 1.0 = HP 100)")
-    print(f"  {'상대':<20} {'밴드체류':>8} {'밴드내조준률':>12} {'득점시간':>8} "
-          f"{'헛조준':>7} {'d_wez':>6} | {'내득점':>8} {'예상HP':>7} | {'피격':>8} {'상대조준률':>10}")
+    print(f"  {'상대':<20} {'밴드체류':>8} {'조준률':>7} | {'공세밴드':>8} "
+          f"{'순수조준률':>10} {'공세득점':>8} | {'헛조준':>7} | {'내득점':>8} {'예상HP':>7} | {'피격':>8}")
     for r in rows:
-        print(f"  {r['target']:<20} {r['T_band']:>7.1f}s {r['P_aim']:>11.2f}% "
-              f"{r['T_hit']:>7.2f}s {r['T_waste']:>6.1f}s {r['dwez']:>6.3f} | "
-              f"{r['my']:>8.4f} {r['my']*MULT:>7.1f} | {r['th']:>8.4f} {r['th_aim']:>9.2f}%")
+        print(f"  {r['target']:<20} {r['T_band']:>7.1f}s {r['P_aim']:>6.2f}% | "
+              f"{r['T_oband']:>7.1f}s {r['P_oaim']:>9.2f}% {r['T_ohit']:>7.2f}s | "
+              f"{r['T_waste']:>6.1f}s | {r['my']:>8.4f} {r['my']*MULT:>7.1f} | {r['th']:>8.4f}")
 
     print("\n  ➜ 병목 판별")
     print(f"  {'상대':<20} {'병목':<28} 근거")
