@@ -81,6 +81,11 @@ def parse_args():
         default="rl",
         help="AI type announced to the Unreal server in ClientJoinInfo.",
     )
+    # 08-15 추가. 서버가 보낸 것을 그대로 JSONL로 남긴다(가공·역산 없음).
+    # 뷰어 자체 CSV는 Time 열이 1초 정수 + 경기시계의 2.07배라 1도 판정에 못 쓴다.
+    # 자세한 배경과 사후 분석은 `_engagement_recorder.py` 참고.
+    parser.add_argument("--record", help="교전 기록 JSONL 경로. 지정하면 매 프레임 수신값과 송신 CMD를 남긴다.")
+    parser.add_argument("--record-note", default="", help="기록 헤더에 남길 메모(상대 기체, 시작 거리 등).")
     return parser.parse_args()
 
 
@@ -136,6 +141,13 @@ def main():
             action_repeat=args.action_repeat,
             debug_action_repeat=args.debug_action_repeat,
         )
+        recorder = None
+        if args.record:
+            from _engagement_recorder import RecordingPolicy
+
+            recorder = RecordingPolicy(command_policy, args.record, note=args.record_note)
+            command_policy = recorder      # 동작은 그대로, 기록만 덧붙인다
+            print(f"[record] 교전 기록 -> {args.record}")
         client = UnrealAIPilotUDPClient(
             command_policy=command_policy,
             server_ip=args.server_ip,
@@ -153,6 +165,8 @@ def main():
         try:
             client.run()
         finally:
+            if recorder is not None:
+                recorder.close()
             action_provider.close()
 
 
