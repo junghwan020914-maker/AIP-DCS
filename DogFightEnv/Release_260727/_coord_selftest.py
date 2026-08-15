@@ -51,9 +51,10 @@ for p in (ROOT, ROOT / "src"):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from dogfight.ai.native_bt import AIPilot, OPlaneData  # noqa: E402
+from dogfight.ai.native_bt import AIPilot, ControlValue, OPlaneData  # noqa: E402
 
 FAIL_M = 1.0e5          # 사전 등록 기준
+INVAR_TOL = 1.0e-4      # 불변성 시험 허용오차
 CASES = [
     ("원점 근처 1km",      (0.0, 0.0, 5000.0),        (1000.0, 0.0, 5000.0)),
     ("원점에서 25km 떨어짐", (20000.0, -15000.0, 4500.0), (20850.0, -14150.0, 4600.0)),
@@ -69,6 +70,38 @@ def plane(pos, yaw, pid, team, hp=100.0, speed=200.0):
     d.Team = team
     d.Resv0, d.Resv1, d.Resv2 = pid, hp, 0.0
     return d
+
+
+def test_getstick(bt) -> tuple[bool, float]:
+    """GetStick 수출 함수 불변성 시험.
+
+    상대 기하는 같고 절대 위치만 다르게 두 번 부른다. 좌표 변환을 하지 않으면
+    상대 기하만 결과를 정하므로 **두 답이 같아야 한다.** 다르면 절대 위치가
+    결과에 새어 들어간 것이고, 그건 LLAtoCartesian 이중 변환의 서명이다.
+
+    `Step()`이 깨끗해도 이쪽은 따로 깨져 있을 수 있다 - ryujan v43이 실제로 그렇다.
+
+    [주의] 제어기는 **내부 상태를 갖는다**(D항, LOS 적분). A를 부른 뒤 B를 부르면 B가
+    A의 위치를 기억해 좌표와 무관한 차이가 생긴다 - 실제로 이 오염 때문에 수정본이
+    0.450으로 잘못 FAIL 났었다. 그래서 **케이스마다 Reset + 트리 재생성**한다.
+    """
+    bt.AIPilotDLL.GetStick.argtypes = [ct.POINTER(OPlaneData), ct.c_float,
+                                       ct.c_float, ct.c_float]
+    bt.AIPilotDLL.GetStick.restype = ControlValue
+    OFF = (1000.0, 0.0, 0.0)
+    worst = 0.0
+    for yaw in (0.0, 45.0, 135.0, 225.0):
+        outs = []
+        for base in ((0.0, 0.0, 5000.0), (20000.0, -15000.0, 5000.0)):
+            bt.AIPilotDLL.Reset()                 # 상태 오염 제거
+            bt.CreateBehaviorTree(1, 1)
+            me = plane(base, yaw, 1, 1)
+            vp = tuple(b + o for b, o in zip(base, OFF))
+            r = bt.AIPilotDLL.GetStick(ct.byref(me), ct.c_float(vp[0]),
+                                       ct.c_float(vp[1]), ct.c_float(vp[2]))
+            outs.append((r.RollCMD, r.PitchCMD, r.RudderCMD))
+        worst = max(worst, max(abs(a - b) for a, b in zip(outs[0], outs[1])))
+    return worst <= INVAR_TOL, worst
 
 
 def test_dll(name: str) -> bool:
@@ -102,13 +135,26 @@ def test_dll(name: str) -> bool:
         worst = max(worst, dist)
         rows.append((label, vp, dist))
 
-    ok = worst <= FAIL_M
-    print(f"  {name:<26} {'PASS' if ok else '🔴 FAIL'}   최대 |VP-내위치| = {worst:.3e} m")
+    step_ok = worst <= FAIL_M
+    try:
+        gs_ok, gs_delta = test_getstick(bt)
+    except Exception as exc:                      # noqa: BLE001
+        print(f"  {name:<26} GetStick 시험 실패: {type(exc).__name__}: {exc}")
+        gs_ok, gs_delta = False, float("nan")
+
+    tag = "PASS" if (step_ok and gs_ok) else "FAIL"
+    print(f"  {name:<26} {tag:<5} Step {'OK ' if step_ok else 'NG '}"
+          f"(|VP-내위치| 최대 {worst:.2e} m)   "
+          f"GetStick {'OK ' if gs_ok else 'NG '}(불변성 차 {gs_delta:.3e})")
     for label, vp, dist in rows:
         mark = " " if dist <= FAIL_M else "*"
         print(f"     {mark} {label:<22} VP=({vp.X:12.1f},{vp.Y:12.1f},{vp.Z:10.1f})  "
               f"거리 {dist:.3e} m")
-    return ok
+    if not gs_ok:
+        print(f"     * GetStick: 상대 기하가 같은데 절대 위치만 바꾸면 답이 달라진다"
+              f" (차 {gs_delta:.3f})")
+        print(f"       -> LibMain.cpp GetStick()의 LLAtoCartesian 한 줄을 지울 것")
+    return step_ok and gs_ok
 
 
 def main():
