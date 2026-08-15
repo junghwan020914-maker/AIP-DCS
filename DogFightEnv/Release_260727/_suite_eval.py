@@ -69,7 +69,7 @@ for p in (ROOT, SRC):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from _aim_time_probe import PHASES, DT, make_state, score_rate  # noqa: E402
+from _aim_time_probe import FEET, PHASES, DT, make_state, score_rate  # noqa: E402
 from DogFightEnvWrapper import DogFightWrapper  # noqa: E402
 from dogfight.ai.bt_action_provider import BTActionProvider  # noqa: E402
 
@@ -145,6 +145,34 @@ PRESETS = {
 
 
 
+# 🔴 08-15 실서버 실측 — **뷰어는 초기조건을 고정한다.** 5판이 소수점까지 같았다:
+#     고도 4572.0m(15000ft)  이격 608.6m(2000ft)  속도 200.0m/s  yaw 90/-90
+# 반면 `make_state`는 고도 2000~30000ft, 속도 200~300m/s를 흔든다. 특히 **속도 200은
+# 우리 로컬 범위의 최하단**이고, 선회율이 g*sqrt(Nz^2-1)/V라 저속일수록 잘 돈다.
+# 즉 실서버는 로컬 평균보다 훨씬 조이는 선회전이다 — 로컬이 낙관적이었던 유력한 원인.
+# heading만 흔든다: 평평한 지구·무풍이라 물리적으로 무관해야 하고, 그래서 남는 차이는
+# 곧 좌우/방위 비대칭이다(제어기 롤 비대칭 버그 전력이 있어 감시 가치가 있다).
+SERVER_ALT_M = 15000.0 * FEET
+SERVER_SEP_M = 2000.0 * FEET
+SERVER_SPD = 200.0
+
+
+def server_state(rng):
+    hdg = float(rng.uniform(0.0, 360.0))
+    half = SERVER_SEP_M / 2.0
+    prad = np.deg2rad(hdg + 90.0)
+    pn, pe = np.cos(prad) * half, np.sin(prad) * half
+    return ([-pn, -pe, -SERVER_ALT_M, 0.0, 0.0, hdg, SERVER_SPD],
+            [pn, pe, -SERVER_ALT_M, 0.0, 0.0, (hdg + 180.0) % 360.0, SERVER_SPD])
+
+
+INIT_MODE = "random"        # "random" = make_state(기존), "server" = 실서버 고정조건
+
+
+def _make(rng):
+    return server_state(rng) if INIT_MODE == "server" else make_state(rng)
+
+
 def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
     my_hp = th_hp = 0.0
     my_phase = {1: 0.0, 2: 0.0, 3: 0.0}
@@ -167,10 +195,19 @@ def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
     # "마진이 0 근처인 판"은 안 보인다. 판별 시드와 무득점 판을 따로 센다.
     zero_scored = 0
     margins = []
+    # 🔴 08-15 실서버 3파전으로 확정된 진짜 병목 — **상대가 우리 뒤에 눌러앉은 시간**.
+    # yuno vs v44는 양쪽 다 0.0초인데(서로 자리를 안 내준다) 둘 다 우리에게는 40~50초씩
+    # 끊김 없이 눌러앉았다. 셋 중 자리를 못 지키는 건 우리뿐이었다.
+    # 지금까지 채점기는 **우리 득점만** 보고 이걸 안 봤다. 공세 = 밴드 안에서
+    # 내ATA<50 & 적ATA>130 (`_symmetry_probe.py`와 동일 정의).
+    pin_them = 0          # 상대가 우리 뒤에 있은 틱
+    pin_me = 0            # 우리가 상대 뒤에 있은 틱
+    pin_them_max = 0.0    # 그 중 최장 연속(초) — 총량보다 이게 승패를 가른다
+    pin_me_max = 0.0
 
     for seed in range(off, off + n):
         rng = np.random.default_rng(seed)
-        own, tgt = make_state(rng)
+        own, tgt = _make(rng)
         env = DogFightWrapper(
             env_config={
                 "observation_mode": "tactical16", "ownship_control_mode": "rl",
@@ -188,6 +225,7 @@ def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
         my_min_alt = 1e9
         tgt_min_alt = 1e9
         seed_my = seed_th = 0.0
+        run_them = run_me = 0
         srv_my = srv_th = 0.0            # Phase1만 누산 (뷰어 실측 모델). 1.0 = HP 100 = 격추
         srv_kill_t = srv_death_t = None  # 먼저 체력을 소진시킨 시각
         while not (terminated or truncated):
@@ -204,6 +242,21 @@ def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
             tgt_min_alt = min(tgt_min_alt, -float(env._target_state[2]))
             if 152.4 <= d <= 914.4 and ma <= 1.0:
                 cone1 += 1
+            inb = 152.4 <= d <= 914.4
+            if inb and ta < 50.0 and ma > 130.0:       # 상대가 우리 뒤
+                pin_them += 1
+                run_them += 1
+                if run_them * DT > pin_them_max:
+                    pin_them_max = run_them * DT
+            else:
+                run_them = 0
+            if inb and ma < 50.0 and ta > 130.0:       # 우리가 상대 뒤
+                pin_me += 1
+                run_me += 1
+                if run_me * DT > pin_me_max:
+                    pin_me_max = run_me * DT
+            else:
+                run_me = 0
             r, ph = score_rate(d, ma, t_s)
             my_hp += r * DT
             seed_my += r * DT
@@ -289,7 +342,9 @@ def run_one(ownship: str, target: str, n: int, off: int = 0) -> dict:
                 s_w=s_wins, s_l=s_losses, s_d=n - s_wins - s_losses,
                 s_kills=s_kills, s_deaths=s_deaths,
                 s_kt=(float(np.mean(s_kill_times)) if s_kill_times else 0.0),
-                s_dt=(float(np.mean(s_death_times)) if s_death_times else 0.0))
+                s_dt=(float(np.mean(s_death_times)) if s_death_times else 0.0),
+                pin_them=pin_them * DT / n, pin_me=pin_me * DT / n,
+                pin_them_max=pin_them_max, pin_me_max=pin_me_max)
 
 
 def main():
@@ -298,11 +353,16 @@ def main():
     ap.add_argument("--targets", default="")
     ap.add_argument("--preset", choices=sorted(PRESETS), default="core")
     ap.add_argument("--num-seeds", type=int, default=30)
+    ap.add_argument("--init", choices=["random", "server"], default="random",
+                    help="random=기존 make_state, server=실서버 고정조건(15000ft/2000ft/200m/s)")
     # 08-10: 아웃오브샘플 검증용. 지금까지 모든 튜닝이 시드 0~29에서 이루어졌는데
     # 대회는 40시드이고 우리가 본 적 없는 시드가 섞인다. 시드 집합 과적합 여부를
     # 한 번도 확인한 적이 없어 오프셋을 넣는다.
     ap.add_argument("--seed-offset", type=int, default=0)
     args = ap.parse_args()
+
+    global INIT_MODE
+    INIT_MODE = args.init
 
     targets = ([t.strip() for t in args.targets.split(",") if t.strip()]
                if args.targets else PRESETS[args.preset])
@@ -344,6 +404,20 @@ def main():
         allpts = sum(r["w"] + 0.5 * r["draws"] for r in rows)
         alln = sum(r["n"] for r in rows)
         print(f"  → 총 승점 {allpts:.1f} / {alln}  ({100*allpts/alln:.1f}%)")
+
+        print()
+        print("  [자리 지키기] 밴드 안에서 뒤를 잡힌/잡은 시간 s/판  — 08-15 실서버로 확정된 병목.")
+        print("  yuno vs v44는 양쪽 다 0.0초였는데(서로 자리를 안 내준다) 둘 다 우리에겐 40~50초씩 눌러앉았다.")
+        print(f"  {'상대':<16} {'뒤잡힘 총':>9} {'최장연속':>9} | {'뒤잡음 총':>9} {'최장연속':>9} | {'비(잡힘/잡음)':>13}")
+        for r in rows:
+            rt = (r['pin_them'] / r['pin_me']) if r['pin_me'] > 0.05 else float('inf')
+            rs = "  inf" if rt == float('inf') else f"{rt:6.2f}"
+            print(f"  {r['target']:<16} {r['pin_them']:>9.1f} {r['pin_them_max']:>9.1f} | "
+                  f"{r['pin_me']:>9.1f} {r['pin_me_max']:>9.1f} | {rs:>13}")
+        tp = sum(r['pin_them'] for r in rows) / len(rows)
+        mp = sum(r['pin_me'] for r in rows) / len(rows)
+        print(f"  -> 평균 뒤잡힘 {tp:.1f}s / 뒤잡음 {mp:.1f}s   "
+              f"최장연속 최악 {max(r['pin_them_max'] for r in rows):.1f}s")
 
         print()
         print("  [보수 모델] Phase 1만(ATA<1도, 152~914m) 인정한 민감도 확인용.")
