@@ -294,7 +294,16 @@ ControlValue GetStick(oPlaneData& MyData, float VP_X, float VP_Y, float VP_Z)
 
     if(BT_item != BTList.end())
     {
-        BT_Geometry::Vector3 Mylocation_Cartesian = LLAtoCartesian(BT_Geometry::Vector3(MyData.LocationX,MyData.LocationY,MyData.LocationZ), Vector3(37.91455691666666, 128.18188127777776, 0));
+        // 2026-08-15 BUG FIX: this line applied LLAtoCartesian to oPlaneData.LocationX/Y/Z,
+        // which are ALREADY Cartesian meters (ChangeData() converts, and the server sends
+        // Cartesian directly). The double conversion read metres as degrees:
+        //   dlat = 608.5 - 37.91 = 570.6 "deg" -> (M+h)*570.6*pi/180 ~= 6.3e7 m
+        // Measured by invariance test (_coord_selftest.py / same relative geometry at two
+        // absolute positions gave different sticks, delta 1.000). Step() was already clean,
+        // so only callers of this export were blind - which is why the symptom looked
+        // machine-dependent: it depends on which export the harness calls, not the PC.
+        // Organizer 2026-05-25: "transmission is Cartesian only, ignore LLA".
+        BT_Geometry::Vector3 Mylocation_Cartesian(MyData.LocationX, MyData.LocationY, MyData.LocationZ);
         BT_Geometry::Vector3 MyRotation = BT_Geometry::Vector3(MyData.Roll*D2R, MyData.Pitch*D2R, MyData.Yaw*D2R);
         v = BT_item->second->Controller.GetStick(Mylocation_Cartesian, MyRotation, BT_Geometry::Vector3(VP_X, VP_Y,VP_Z));
         value.RollCMD = v.RollCMD;
