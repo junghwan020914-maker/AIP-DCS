@@ -157,13 +157,22 @@ SERVER_SEP_M = 2000.0 * FEET
 SERVER_SPD = 200.0
 
 
+# 시작 조건을 매개변수로 뺀다. 뷰어는 이격 2000/2500/3000ft 버튼과 Speed/Alt 입력을
+# 제공하므로 **대회가 어느 값을 쓸지 모른다.** 한 조건에서만 좋은 기체를 뽑지 않으려면
+# 민감도를 재야 한다. 08-15 실측 기본값은 15000ft / 2000ft / 200m/s 였다.
+INIT_SEP_FT = 2000.0
+INIT_ALT_FT = 15000.0
+INIT_SPD = 200.0
+
+
 def server_state(rng):
     hdg = float(rng.uniform(0.0, 360.0))
-    half = SERVER_SEP_M / 2.0
+    half = (INIT_SEP_FT * FEET) / 2.0
     prad = np.deg2rad(hdg + 90.0)
     pn, pe = np.cos(prad) * half, np.sin(prad) * half
-    return ([-pn, -pe, -SERVER_ALT_M, 0.0, 0.0, hdg, SERVER_SPD],
-            [pn, pe, -SERVER_ALT_M, 0.0, 0.0, (hdg + 180.0) % 360.0, SERVER_SPD])
+    alt = INIT_ALT_FT * FEET
+    return ([-pn, -pe, -alt, 0.0, 0.0, hdg, INIT_SPD],
+            [pn, pe, -alt, 0.0, 0.0, (hdg + 180.0) % 360.0, INIT_SPD])
 
 
 INIT_MODE = "random"        # "random" = make_state(기존), "server" = 실서버 고정조건
@@ -354,15 +363,22 @@ def main():
     ap.add_argument("--preset", choices=sorted(PRESETS), default="core")
     ap.add_argument("--num-seeds", type=int, default=30)
     ap.add_argument("--init", choices=["random", "server"], default="random",
-                    help="random=기존 make_state, server=실서버 고정조건(15000ft/2000ft/200m/s)")
+                    help="random=기존 make_state, server=고정조건(기본 15000ft/2000ft/200m/s)")
+    ap.add_argument("--sep-ft", type=float, default=2000.0, help="server 모드 기체간 이격(ft)")
+    ap.add_argument("--alt-ft", type=float, default=15000.0, help="server 모드 고도(ft)")
+    ap.add_argument("--spd", type=float, default=200.0, help="server 모드 초기속도(m/s)")
     # 08-10: 아웃오브샘플 검증용. 지금까지 모든 튜닝이 시드 0~29에서 이루어졌는데
     # 대회는 40시드이고 우리가 본 적 없는 시드가 섞인다. 시드 집합 과적합 여부를
     # 한 번도 확인한 적이 없어 오프셋을 넣는다.
     ap.add_argument("--seed-offset", type=int, default=0)
     args = ap.parse_args()
 
-    global INIT_MODE
+    global INIT_MODE, INIT_SEP_FT, INIT_ALT_FT, INIT_SPD
     INIT_MODE = args.init
+    INIT_SEP_FT, INIT_ALT_FT, INIT_SPD = args.sep_ft, args.alt_ft, args.spd
+    if INIT_MODE == "server":
+        print(f"  [초기조건] 이격 {INIT_SEP_FT:.0f}ft  고도 {INIT_ALT_FT:.0f}ft  "
+              f"속도 {INIT_SPD:.0f}m/s  (heading만 시드로 흔듦)")
 
     targets = ([t.strip() for t in args.targets.split(",") if t.strip()]
                if args.targets else PRESETS[args.preset])
